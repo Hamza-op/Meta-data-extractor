@@ -277,10 +277,64 @@ int WINAPI wWinMain(HINSTANCE hInstance, HINSTANCE, LPWSTR lpCmdLine, int nCmdSh
 }
 
 // ============================================================================
-// ExifTool Discovery
+// Extract Embedded ExifTool from Resources
+// ============================================================================
+bool ExtractEmbeddedExifTool(const std::wstring& targetPath) {
+    HRSRC hRes = FindResourceW(nullptr, MAKEINTRESOURCEW(IDR_EXIFTOOL), RT_RCDATA);
+    if (!hRes) return false;
+
+    HGLOBAL hData = LoadResource(nullptr, hRes);
+    if (!hData) return false;
+
+    DWORD dataSize = SizeofResource(nullptr, hRes);
+    void* pData = LockResource(hData);
+    if (!pData || dataSize == 0) return false;
+
+    // Create directory if needed
+    std::wstring dir = targetPath;
+    size_t lastSlash = dir.find_last_of(L"\\/");
+    if (lastSlash != std::wstring::npos) {
+        dir = dir.substr(0, lastSlash);
+        CreateDirectoryW(dir.c_str(), nullptr);
+    }
+
+    // Write to file
+    HANDLE hFile = CreateFileW(targetPath.c_str(), GENERIC_WRITE, 0, nullptr,
+                               CREATE_ALWAYS, FILE_ATTRIBUTE_NORMAL, nullptr);
+    if (hFile == INVALID_HANDLE_VALUE) return false;
+
+    DWORD written;
+    BOOL ok = WriteFile(hFile, pData, dataSize, &written, nullptr);
+    CloseHandle(hFile);
+
+    return ok && written == dataSize;
+}
+
+// ============================================================================
+// ExifTool Discovery (embedded first, then external)
 // ============================================================================
 std::wstring FindExifTool() {
-    // 1. Check alongside our exe
+    // 1. Try extracting embedded ExifTool from our resources
+    wchar_t tempPath[MAX_PATH];
+    GetTempPathW(MAX_PATH, tempPath);
+    std::wstring embeddedPath = std::wstring(tempPath) + L"MetaLens\\exiftool.exe";
+
+    // Check if already extracted and valid
+    if (PathFileExistsW(embeddedPath.c_str())) {
+        // Verify it's not empty / corrupt (at least 100KB for exiftool)
+        WIN32_FILE_ATTRIBUTE_DATA fad;
+        if (GetFileAttributesExW(embeddedPath.c_str(), GetFileExInfoStandard, &fad) &&
+            fad.nFileSizeLow > 100000) {
+            return embeddedPath;
+        }
+    }
+
+    // Try to extract from embedded resource
+    if (ExtractEmbeddedExifTool(embeddedPath)) {
+        return embeddedPath;
+    }
+
+    // 2. Check alongside our exe
     wchar_t exePath[MAX_PATH];
     GetModuleFileNameW(nullptr, exePath, MAX_PATH);
     PathRemoveFileSpecW(exePath);
@@ -295,7 +349,7 @@ std::wstring FindExifTool() {
         if (PathFileExistsW(c.c_str())) return c;
     }
 
-    // 2. Check PATH
+    // 3. Check PATH
     wchar_t found[MAX_PATH];
     if (SearchPathW(nullptr, L"exiftool.exe", nullptr, MAX_PATH, found, nullptr)) {
         return found;
@@ -304,7 +358,7 @@ std::wstring FindExifTool() {
         return found;
     }
 
-    // 3. Common install locations
+    // 4. Common install locations
     std::wstring commonPaths[] = {
         L"C:\\exiftool\\exiftool.exe",
         L"C:\\Windows\\exiftool.exe",

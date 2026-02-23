@@ -24,11 +24,27 @@ jobs:
       with:
         arch: x64
 
+    - name: Download ExifTool
+      run: |
+        Write-Host "Downloading ExifTool..."
+        Invoke-WebRequest -Uri "https://exiftool.org/exiftool-13.25_64.zip" -OutFile "exiftool.zip" -UseBasicParsing
+        Expand-Archive -Path "exiftool.zip" -DestinationPath "exiftool_tmp"
+        # The zip contains exiftool(-k).exe, rename it
+        $exeFile = Get-ChildItem -Path "exiftool_tmp" -Filter "*.exe" -Recurse | Select-Object -First 1
+        if ($exeFile) {
+          Copy-Item $exeFile.FullName -Destination "src\exiftool.exe"
+          Write-Host "ExifTool ready: $($exeFile.Length / 1MB) MB"
+        } else {
+          Write-Error "Failed to find exiftool exe in archive"
+          exit 1
+        }
+      shell: pwsh
+
     - name: Create output directory
       run: mkdir bin
 
-    - name: Compile resource file
-      run: rc /nologo /fo bin\resource.res src\resource.rc
+    - name: Compile resource file (with embedded ExifTool)
+      run: rc /nologo /dEMBED_EXIFTOOL /fo bin\resource.res src\resource.rc
 
     - name: Build MetaLens
       run: |
@@ -52,8 +68,8 @@ jobs:
     - name: Verify build
       run: |
         if (Test-Path "bin\MetaLens.exe") {
-          $size = (Get-Item "bin\MetaLens.exe").Length / 1KB
-          Write-Host "BUILD OK - MetaLens.exe ($([math]::Round($size, 1)) KB)"
+          $size = (Get-Item "bin\MetaLens.exe").Length / 1MB
+          Write-Host "BUILD OK - MetaLens.exe ($([math]::Round($size, 2)) MB) - ExifTool embedded!"
         } else {
           Write-Error "BUILD FAILED"
           exit 1
@@ -80,9 +96,15 @@ jobs:
         body: |
           ## MetaLens ${{ github.ref_name }}
           
+          **Single exe — no setup needed!** ExifTool is embedded inside.
+          
           ### How to use
           1. Download `MetaLens-${{ github.ref_name }}-windows-x64.zip` below
           2. Extract `MetaLens.exe`
-          3. Download [ExifTool](https://exiftool.org) → extract → rename to `exiftool.exe`
-          4. Place `exiftool.exe` next to `MetaLens.exe`
-          5. Run MetaLens and drop any photo/video!
+          3. Run it and drop any photo, RAW file, or video!
+          
+          ### What's inside
+          - 200+ camera model name resolution (Canon, Nikon, Sony, DJI, Samsung, etc.)
+          - 150+ lens model identification
+          - Full MakerNotes extraction
+          - Search/filter across 1000+ metadata fields

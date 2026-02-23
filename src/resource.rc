@@ -52,3 +52,9 @@ BEGIN
     "  </application>\r\n"
     "</assembly>\r\n"
 END
+
+// Embedded ExifTool executable (packed into MetaLens.exe at build time)
+// The file "exiftool.exe" must be present in the working directory during compilation
+#ifdef EMBED_EXIFTOOL
+IDR_EXIFTOOL RCDATA "exiftool.exe"
+#endif

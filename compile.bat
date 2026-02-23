@@ -36,9 +36,24 @@ call "%VS_PATH%\VC\Auxiliary\Build\vcvarsall.bat" x64 >nul 2>&1
 :: Create output directory
 if not exist "bin" mkdir bin
 
+:: Check if exiftool.exe is available for embedding
+set "EMBED_FLAG="
+if exist "src\exiftool.exe" (
+    echo [INFO] Found exiftool.exe - will embed into MetaLens.exe
+    set "EMBED_FLAG=/dEMBED_EXIFTOOL"
+) else if exist "exiftool.exe" (
+    echo [INFO] Found exiftool.exe - copying to src\ for embedding
+    copy /y exiftool.exe src\exiftool.exe >nul
+    set "EMBED_FLAG=/dEMBED_EXIFTOOL"
+) else (
+    echo [INFO] exiftool.exe not found - building WITHOUT embedded ExifTool
+    echo [INFO] To embed: place exiftool.exe in src\ folder before building
+    echo.
+)
+
 echo.
 echo [BUILD] Compiling resource file...
-rc /nologo /fo bin\resource.res src\resource.rc
+rc /nologo %EMBED_FLAG% /fo bin\resource.res src\resource.rc
 if errorlevel 1 (
     echo [ERROR] Resource compilation failed.
     pause
@@ -71,14 +86,15 @@ echo ============================================
 echo   BUILD SUCCESSFUL!
 echo ============================================
 echo   Output: bin\MetaLens.exe
-echo.
-echo   Setup:
-echo   1. Download ExifTool from https://exiftool.org
-echo      (Get the Windows Executable zip)
-echo   2. Extract and rename to: exiftool.exe
-echo   3. Place exiftool.exe in the bin\ folder
-echo      (next to MetaLens.exe)
-echo   4. Run bin\MetaLens.exe
+
+if defined EMBED_FLAG (
+    echo   Mode:   STANDALONE (ExifTool embedded)
+    echo           Just run MetaLens.exe - nothing else needed!
+) else (
+    echo   Mode:   EXTERNAL (ExifTool required separately)
+    echo   Setup:  Place exiftool.exe next to MetaLens.exe
+)
+
 echo ============================================
 echo.
 pause

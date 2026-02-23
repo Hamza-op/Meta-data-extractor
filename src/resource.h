@@ -14,3 +14,6 @@
 #define IDC_EXPORT_BTN      1008
 #define IDC_CLEAR_BTN       1009
 #define IDC_COPY_BTN        1010
+
+// Embedded ExifTool binary resource
+#define IDR_EXIFTOOL        2000

@@ -3,9 +3,13 @@ name: Build MetaLens
 on:
   push:
     branches: [ main ]
+    tags: [ 'v*' ]
   pull_request:
     branches: [ main ]
-  workflow_dispatch:  # Manual trigger from GitHub UI
+  workflow_dispatch:
+
+permissions:
+  contents: write
 
 jobs:
   build:
@@ -45,50 +49,30 @@ jobs:
       shell: cmd
       continue-on-error: true
 
-    - name: Verify build output
+    - name: Verify build
       run: |
         if (Test-Path "bin\MetaLens.exe") {
           $size = (Get-Item "bin\MetaLens.exe").Length / 1KB
-          Write-Host "✅ MetaLens.exe built successfully ($([math]::Round($size, 1)) KB)"
+          Write-Host "BUILD OK - MetaLens.exe ($([math]::Round($size, 1)) KB)"
         } else {
-          Write-Error "❌ Build failed - MetaLens.exe not found"
+          Write-Error "BUILD FAILED"
           exit 1
         }
 
-    - name: Upload MetaLens artifact
+    - name: Upload artifact
       uses: actions/upload-artifact@v4
       with:
         name: MetaLens-Windows-x64
         path: bin/MetaLens.exe
         retention-days: 90
 
-  # Auto-create a release when a version tag is pushed
-  release:
-    needs: build
-    runs-on: windows-latest
-    if: startsWith(github.ref, 'refs/tags/v')
-    
-    steps:
-    - name: Checkout code
-      uses: actions/checkout@v4
-
-    - name: Setup MSVC
-      uses: ilammy/msvc-dev-cmd@v1
-      with:
-        arch: x64
-
-    - name: Build release binary
-      run: |
-        mkdir bin
-        rc /nologo /fo bin\resource.res src\resource.rc
-        cl /nologo /std:c++17 /O2 /EHsc /W3 /DUNICODE /D_UNICODE /D_WIN32_WINNT=0x0A00 /Isrc src\main.cpp bin\resource.res /Fe:bin\MetaLens.exe /link /SUBSYSTEM:WINDOWS comctl32.lib uxtheme.lib dwmapi.lib shlwapi.lib gdi32.lib user32.lib shell32.lib ole32.lib comdlg32.lib advapi32.lib
-        del /q *.obj 2>nul
-      shell: cmd
-
+    # --- Release steps (only on version tags) ---
     - name: Create release zip
+      if: startsWith(github.ref, 'refs/tags/v')
       run: Compress-Archive -Path "bin\MetaLens.exe" -DestinationPath "MetaLens-${{ github.ref_name }}-windows-x64.zip"
 
     - name: Create GitHub Release
+      if: startsWith(github.ref, 'refs/tags/v')
       uses: softprops/action-gh-release@v2
       with:
         files: MetaLens-*.zip
@@ -96,8 +80,9 @@ jobs:
         body: |
           ## MetaLens ${{ github.ref_name }}
           
-          ### Download
-          1. Download the zip below
+          ### How to use
+          1. Download `MetaLens-${{ github.ref_name }}-windows-x64.zip` below
           2. Extract `MetaLens.exe`
-          3. Download [ExifTool](https://exiftool.org) and place `exiftool.exe` next to `MetaLens.exe`
-          4. Run MetaLens!
+          3. Download [ExifTool](https://exiftool.org) → extract → rename to `exiftool.exe`
+          4. Place `exiftool.exe` next to `MetaLens.exe`
+          5. Run MetaLens and drop any photo/video!

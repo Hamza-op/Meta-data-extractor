@@ -26,16 +26,40 @@ jobs:
 
     - name: Download ExifTool
       run: |
-        Write-Host "Downloading ExifTool..."
-        Invoke-WebRequest -Uri "https://exiftool.org/exiftool-13.25_64.zip" -OutFile "exiftool.zip" -UseBasicParsing
-        Expand-Archive -Path "exiftool.zip" -DestinationPath "exiftool_tmp"
-        # The zip contains exiftool(-k).exe, rename it
+        Write-Host "Downloading ExifTool from SourceForge..."
+        # Try downloading the Windows 64-bit standalone executable
+        $urls = @(
+          "https://sourceforge.net/projects/exiftool/files/exiftool-13.51_64.zip/download",
+          "https://sourceforge.net/projects/exiftool/files/exiftool-13.50_64.zip/download",
+          "https://sourceforge.net/projects/exiftool/files/exiftool-13.49_64.zip/download"
+        )
+        $downloaded = $false
+        foreach ($url in $urls) {
+          try {
+            Write-Host "Trying: $url"
+            Invoke-WebRequest -Uri $url -OutFile "exiftool.zip" -UseBasicParsing -MaximumRedirection 5 -TimeoutSec 120
+            if ((Get-Item "exiftool.zip").Length -gt 100000) {
+              $downloaded = $true
+              Write-Host "Download successful: $((Get-Item 'exiftool.zip').Length / 1MB) MB"
+              break
+            }
+          } catch {
+            Write-Host "Failed: $_"
+          }
+        }
+        if (-not $downloaded) {
+          Write-Error "Could not download ExifTool from any source"
+          exit 1
+        }
+        Expand-Archive -Path "exiftool.zip" -DestinationPath "exiftool_tmp" -Force
+        # Find the exe (could be in a subfolder like exiftool-13.51_64/)
         $exeFile = Get-ChildItem -Path "exiftool_tmp" -Filter "*.exe" -Recurse | Select-Object -First 1
         if ($exeFile) {
-          Copy-Item $exeFile.FullName -Destination "src\exiftool.exe"
-          Write-Host "ExifTool ready: $($exeFile.Length / 1MB) MB"
+          Copy-Item $exeFile.FullName -Destination "src\exiftool.exe" -Force
+          $sizeMB = [math]::Round($exeFile.Length / 1MB, 2)
+          Write-Host "ExifTool ready: $sizeMB MB -> src\exiftool.exe"
         } else {
-          Write-Error "Failed to find exiftool exe in archive"
+          Write-Error "No .exe found in archive"
           exit 1
         }
       shell: pwsh

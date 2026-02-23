@@ -47,35 +47,36 @@
 // Color Theme (Dark, Premium)
 // ============================================================================
 namespace Theme {
-    constexpr COLORREF BgDark       = RGB(18, 18, 24);
-    constexpr COLORREF BgPanel      = RGB(26, 26, 36);
-    constexpr COLORREF BgHeader     = RGB(32, 32, 44);
-    constexpr COLORREF BgInput      = RGB(36, 36, 50);
-    constexpr COLORREF BgHover      = RGB(42, 42, 58);
-    constexpr COLORREF BgSelected   = RGB(55, 48, 107);
-    constexpr COLORREF BgGroupHdr   = RGB(28, 28, 42);
+    // iOS Dark Mode Color Palette
+    constexpr COLORREF BgDark       = RGB(0, 0, 0);          // True black main background
+    constexpr COLORREF BgPanel      = RGB(28, 28, 30);       // System grouped background
+    constexpr COLORREF BgHeader     = RGB(28, 28, 30);
+    constexpr COLORREF BgInput      = RGB(44, 44, 46);       // Slightly elevated
+    constexpr COLORREF BgHover      = RGB(58, 58, 60);
+    constexpr COLORREF BgSelected   = RGB(58, 58, 60);       // iOS blue selected state (or subtle gray)
+    constexpr COLORREF BgGroupHdr   = RGB(44, 44, 46);
 
-    constexpr COLORREF TextPrimary  = RGB(230, 230, 240);
-    constexpr COLORREF TextSecondary= RGB(160, 160, 180);
-    constexpr COLORREF TextMuted    = RGB(100, 100, 120);
-    constexpr COLORREF TextAccent   = RGB(130, 120, 255);
-    constexpr COLORREF TextGreen    = RGB(80, 220, 140);
-    constexpr COLORREF TextOrange   = RGB(255, 180, 80);
-    constexpr COLORREF TextCyan     = RGB(80, 200, 240);
+    constexpr COLORREF TextPrimary  = RGB(255, 255, 255);
+    constexpr COLORREF TextSecondary= RGB(152, 152, 159);
+    constexpr COLORREF TextMuted    = RGB(99, 99, 102);
+    constexpr COLORREF TextAccent   = RGB(10, 132, 255);     // iOS Blue
+    constexpr COLORREF TextGreen    = RGB(48, 209, 88);      // iOS Green
+    constexpr COLORREF TextOrange   = RGB(255, 159, 10);     // iOS Orange
+    constexpr COLORREF TextCyan     = RGB(100, 210, 255);    // iOS Cyan
 
-    constexpr COLORREF AccentPurple = RGB(110, 90, 255);
-    constexpr COLORREF AccentBlue   = RGB(60, 130, 255);
-    constexpr COLORREF Border       = RGB(50, 50, 70);
-    constexpr COLORREF BorderFocus  = RGB(110, 90, 255);
+    constexpr COLORREF AccentPurple = RGB(191, 90, 242);     // iOS Purple
+    constexpr COLORREF AccentBlue   = RGB(10, 132, 255);
+    constexpr COLORREF Border       = RGB(56, 56, 58);       // iOS clean separators
+    constexpr COLORREF BorderFocus  = RGB(10, 132, 255);
 
-    constexpr COLORREF BtnBg        = RGB(110, 90, 255);
-    constexpr COLORREF BtnHover     = RGB(130, 110, 255);
+    constexpr COLORREF BtnBg        = RGB(10, 132, 255);
+    constexpr COLORREF BtnHover     = RGB(0, 113, 227);
     constexpr COLORREF BtnText      = RGB(255, 255, 255);
-    constexpr COLORREF BtnSecBg     = RGB(42, 42, 58);
-    constexpr COLORREF BtnSecHover  = RGB(55, 55, 75);
+    constexpr COLORREF BtnSecBg     = RGB(44, 44, 46);
+    constexpr COLORREF BtnSecHover  = RGB(58, 58, 60);
 
-    constexpr COLORREF DropzoneBg   = RGB(22, 22, 32);
-    constexpr COLORREF DropzoneBorder= RGB(70, 60, 140);
+    constexpr COLORREF DropzoneBg   = RGB(28, 28, 30);
+    constexpr COLORREF DropzoneBorder= RGB(56, 56, 58);
 }
 
 // ============================================================================
@@ -339,7 +340,7 @@ int WINAPI wWinMain(HINSTANCE hInstance, HINSTANCE, LPWSTR lpCmdLine, int nCmdSh
     HWND hWnd = CreateWindowExW(
         WS_EX_ACCEPTFILES,
         CLASS_NAME,
-        L"MetaLens — Deep Metadata Analyzer",
+        L"MetaLens - Deep Metadata Analyzer",
         WS_OVERLAPPEDWINDOW,
         CW_USEDEFAULT, CW_USEDEFAULT, 1200, 800,
         nullptr, nullptr, hInstance, nullptr
@@ -812,12 +813,15 @@ void CreateUIControls(HWND hWnd) {
         hWnd, (HMENU)IDC_LISTVIEW, hInst, nullptr
     );
 
-    // ListView extended styles
+    // ListView extended styles (Clean, no gridlines for iOS modern style)
     ListView_SetExtendedListViewStyle(g_app.hListView,
-        LVS_EX_FULLROWSELECT | LVS_EX_GRIDLINES | LVS_EX_DOUBLEBUFFER |
-        LVS_EX_INFOTIP);
+        LVS_EX_FULLROWSELECT | LVS_EX_DOUBLEBUFFER | LVS_EX_INFOTIP);
 
     SendMessage(g_app.hListView, WM_SETFONT, (WPARAM)g_app.hFontUI, TRUE);
+
+    // Increase row height using a blank image list (modern spacious UI)
+    HIMAGELIST himl = ImageList_Create(1, 32, ILC_COLOR32, 1, 1);
+    ListView_SetImageList(g_app.hListView, himl, LVSIL_SMALL);
 
     // Dark mode for ListView
     SetWindowTheme(g_app.hListView, L"DarkMode_Explorer", nullptr);

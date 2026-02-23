@@ -825,7 +825,13 @@ void CreateUIControls(HWND hWnd) {
 
     // Dark mode for ListView
     SetWindowTheme(g_app.hListView, L"DarkMode_Explorer", nullptr);
-    SetWindowTheme(g_app.hTabControl, L"DarkMode_Explorer", nullptr);
+    ListView_SetBkColor(g_app.hListView, Theme::BgDark);
+    ListView_SetTextBkColor(g_app.hListView, Theme::BgDark);
+
+    HWND hHeader = ListView_GetHeader(g_app.hListView);
+    SetWindowTheme(hHeader, L"DarkMode_ItemsView", nullptr);
+
+    SetWindowTheme(g_app.hTabControl, L"", L""); // disable harsh white theme
     SetWindowTheme(g_app.hSearchEdit, L"DarkMode_CFD", nullptr);
 
     // Add initial columns (Summary mode: 2-column)
@@ -870,7 +876,7 @@ void CreateUIControls(HWND hWnd) {
 
     int parts[] = { 350, 600, -1 };
     SendMessage(g_app.hStatusBar, SB_SETPARTS, 3, (LPARAM)parts);
-    SendMessage(g_app.hStatusBar, SB_SETTEXTW, 0, (LPARAM)L"  Ready — Drop a file or click Open");
+    SendMessage(g_app.hStatusBar, SB_SETTEXTW, 0, (LPARAM)L"  Ready - Drop a file or click Open");
     SendMessage(g_app.hStatusBar, SB_SETTEXTW, 1, (LPARAM)L"  No file loaded");
 
     std::wstring exifStatus = g_app.exifToolPath.empty()
@@ -1114,7 +1120,7 @@ void UpdateStatusBar() {
             for (const auto& e : g_app.summaryEntries) {
                 if (e.value != L"\x2014") found++;
             }
-            status = L"  \x2B50 Summary — " + std::to_wstring(found) + L" / "
+            status = L"  \x2B50 Summary - " + std::to_wstring(found) + L" / "
                    + std::to_wstring(g_app.summaryEntries.size()) + L" fields found  |  "
                    + std::to_wstring(g_app.allEntries.size()) + L" total tags";
         } else {
@@ -1122,7 +1128,7 @@ void UpdateStatusBar() {
                    + L" / " + std::to_wstring(g_app.allEntries.size()) + L" fields";
         }
     } else {
-        status = L"  Ready — Drop a file or click Open";
+        status = L"  Ready - Drop a file or click Open";
     }
     SendMessage(g_app.hStatusBar, SB_SETTEXTW, 0, (LPARAM)status.c_str());
 
@@ -1211,7 +1217,7 @@ void CopyToClipboard() {
     if (g_app.filteredEntries.empty()) return;
 
     std::wstring text;
-    text += L"MetaLens Metadata — " + g_app.currentFile + L"\r\n";
+    text += L"MetaLens Metadata - " + g_app.currentFile + L"\r\n";
     text += L"═══════════════════════════════════════\r\n\r\n";
 
     std::wstring lastGroup;
@@ -1294,7 +1300,7 @@ void PaintDropZone(HWND hWnd, HDC hdc) {
     if (g_app.exifToolPath.empty()) {
         SetTextColor(hdc, Theme::TextOrange);
         RECT warnRect = { lvRect.left, cy + 55, lvRect.right, cy + 80 };
-        DrawTextW(hdc, L"\x26A0  ExifTool not found — place exiftool.exe next to MetaLens.exe", -1, &warnRect, DT_CENTER | DT_SINGLELINE | DT_VCENTER);
+        DrawTextW(hdc, L"\x26A0  ExifTool not found - place exiftool.exe next to MetaLens.exe", -1, &warnRect, DT_CENTER | DT_SINGLELINE | DT_VCENTER);
     }
 }
 
@@ -1574,7 +1580,7 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam) {
             tie.mask = TCIF_TEXT;
             tie.pszText = (LPWSTR)L"\x2B50 Summary";
             TabCtrl_InsertItem(g_app.hTabControl, 0, &tie);
-            SendMessage(g_app.hStatusBar, SB_SETTEXTW, 0, (LPARAM)L"  Ready — Drop a file or click Open");
+            SendMessage(g_app.hStatusBar, SB_SETTEXTW, 0, (LPARAM)L"  Ready - Drop a file or click Open");
             SendMessage(g_app.hStatusBar, SB_SETTEXTW, 1, (LPARAM)L"  No file loaded");
             InvalidateRect(hWnd, nullptr, TRUE);
             return 0;

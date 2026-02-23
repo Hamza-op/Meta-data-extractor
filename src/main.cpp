@@ -117,8 +117,10 @@ struct AppState {
 
     std::vector<MetadataEntry> allEntries;
     std::vector<MetadataEntry> filteredEntries;
+    std::vector<MetadataEntry> summaryEntries;
     std::vector<std::wstring>  groups;
-    int activeGroupIndex = 0; // 0 = "All"
+    int activeGroupIndex = 0; // 0 = "Summary", 1 = "All", 2+ = groups
+    bool viewingSummary  = true;
 
     std::wstring searchQuery;
     bool isLoading       = false;
@@ -171,6 +173,110 @@ std::wstring ToLower(const std::wstring& s) {
     std::wstring out = s;
     std::transform(out.begin(), out.end(), out.begin(), ::towlower);
     return out;
+}
+
+// ============================================================================
+// Curated Summary Fields — displayed in this exact order
+// ============================================================================
+struct SummaryField {
+    const wchar_t* displayName;
+    std::vector<std::wstring> tagAliases; // lowercase exiftool tag names to match
+};
+
+static std::vector<SummaryField> g_summaryFields = {
+    { L"Date Taken",                  { L"date/time original", L"datetimeoriginal", L"create date", L"createdate" } },
+    { L"Camera Model",               { L"camera model name", L"model" } },
+    { L"Lens Model",                 { L"lens model", L"lens", L"lens type" } },
+    { L"ISO",                        { L"iso", L"iso speed", L"iso speed ratings" } },
+    { L"Aperture",                   { L"aperture", L"aperture value", L"f number", L"fnumber" } },
+    { L"Shutter Speed",              { L"shutter speed", L"shutter speed value", L"exposure time", L"exposuretime" } },
+    { L"Focal Length",               { L"focal length", L"focallength" } },
+    { L"Image Width",                { L"image width", L"imagewidth", L"exif image width", L"source image width" } },
+    { L"Image Height",               { L"image height", L"imageheight", L"exif image height", L"source image height" } },
+    { L"File Size",                  { L"file size", L"filesize" } },
+    { L"Frame Rate",                 { L"frame rate", L"video frame rate", L"framerate" } },
+    { L"Bitrate",                    { L"bitrate", L"avg bitrate", L"nominal bitrate", L"audio bitrate", L"video bitrate" } },
+    { L"Duration",                   { L"duration", L"media duration", L"track duration" } },
+    { L"Video Codec",                { L"video codec", L"codec id", L"compressor id", L"compressor name" } },
+    { L"Color Profile",              { L"color profile", L"icc profile name", L"profile description", L"color space data" } },
+    { L"White Balance",              { L"white balance", L"whitebalance" } },
+    { L"GPS Latitude",               { L"gps latitude", L"gpslatitude" } },
+    { L"GPS Longitude",              { L"gps longitude", L"gpslongitude" } },
+    { L"Exposure Compensation",      { L"exposure compensation", L"exposurecompensation" } },
+    { L"Metering Mode",              { L"metering mode", L"meteringmode" } },
+    { L"Focus Mode",                 { L"focus mode", L"focusmode", L"af mode" } },
+    { L"Flash Mode",                 { L"flash", L"flash mode", L"flashmode" } },
+    { L"Camera Make",                { L"make" } },
+    { L"Bit Depth",                  { L"bit depth", L"bitdepth", L"bits per sample", L"bitspersample" } },
+    { L"Color Space",                { L"color space", L"colorspace" } },
+    { L"Audio Channels",             { L"audio channels", L"audiochannels", L"channels", L"channel count" } },
+    { L"Audio Sample Rate",          { L"audio sample rate", L"audiosamplerate", L"sample rate", L"samplerate" } },
+    { L"Orientation",                { L"orientation" } },
+    { L"Copyright",                  { L"copyright", L"copyright notice" } },
+    { L"Artist / Creator",           { L"artist", L"creator", L"author" } },
+    { L"Software Used",              { L"software", L"processing software" } },
+    { L"35mm Equivalent Focal Length",{ L"focal length in 35mm format", L"focallengthin35mmformat", L"35mm focal length" } },
+    { L"Camera Serial Number",       { L"serial number", L"serialnumber", L"camera serial number", L"internal serial number" } },
+    { L"Lens Serial Number",         { L"lens serial number", L"lensserialnumber" } },
+    { L"Firmware Version",           { L"firmware version", L"firmware", L"firmwareversion" } },
+    { L"Focus Distance",             { L"focus distance", L"focusdistance", L"focus distance upper", L"focus distance lower", L"subject distance range" } },
+    { L"Shutter Count",              { L"shutter count", L"shuttercount", L"image count", L"actuations" } },
+    { L"Date Modified",              { L"file modification date/time", L"modify date", L"modifydate" } },
+    { L"Keywords",                   { L"keywords", L"subject" } },
+    { L"Image Description",          { L"image description", L"imagedescription", L"description", L"caption-abstract" } },
+    { L"Focus Points Used",          { L"focus points used", L"af points in focus", L"af point selected" } },
+    { L"Digital Zoom Ratio",         { L"digital zoom ratio", L"digitalzoomratio", L"digital zoom" } },
+    { L"Exposure Program",           { L"exposure program", L"exposureprogram" } },
+    { L"Light Source",               { L"light source", L"lightsource" } },
+    { L"Subject Distance",           { L"subject distance", L"subjectdistance" } },
+    { L"Sensing Method",             { L"sensing method", L"sensingmethod" } },
+    { L"Exposure Mode",              { L"exposure mode", L"exposuremode" } },
+    { L"Scene Capture Type",         { L"scene capture type", L"scenecapturetype" } },
+    { L"Gain Control",               { L"gain control", L"gaincontrol" } },
+    { L"Contrast",                   { L"contrast" } },
+    { L"Saturation",                 { L"saturation" } },
+    { L"Sharpness",                  { L"sharpness" } },
+    { L"Lens Info",                  { L"lens info", L"lensinfo" } },
+    { L"GPS Altitude",               { L"gps altitude", L"gpsaltitude" } },
+    { L"GPS Direction",              { L"gps img direction", L"gpsimgdirection", L"gps dest bearing" } },
+    { L"GPS Speed",                  { L"gps speed", L"gpsspeed" } },
+    { L"Sub-second Time",            { L"sub sec time original", L"subsectimeoriginal", L"sub-sec time original", L"sub sec time" } },
+    { L"Time Zone Offset",           { L"time zone offset", L"timezoneoffset", L"offset time original" } },
+    { L"Compression",                { L"compression" } },
+    { L"Resolution Unit",            { L"resolution unit", L"resolutionunit" } },
+    { L"Rating",                     { L"rating", L"xmp:rating" } },
+    { L"Maker Note Data",            { L"maker note version", L"makernoteversion", L"maker note type", L"maker notes" } },
+};
+
+// Build summary entries from parsed metadata
+static std::vector<MetadataEntry> BuildSummaryEntries(const std::vector<MetadataEntry>& allEntries) {
+    std::vector<MetadataEntry> result;
+    result.reserve(g_summaryFields.size());
+
+    for (const auto& field : g_summaryFields) {
+        MetadataEntry se;
+        se.group = L"Summary";
+        se.tag = field.displayName;
+        se.value = L"\x2014"; // em-dash = not found
+
+        for (const auto& entry : allEntries) {
+            std::wstring tagLow = ToLower(entry.tag);
+            for (const auto& alias : field.tagAliases) {
+                if (tagLow == alias) {
+                    std::wstring val = entry.value;
+                    // Skip empty/dash/unknown
+                    if (!val.empty() && val != L"-" && val != L"(none)" && val != L"Unknown") {
+                        se.value = val;
+                        se.group = entry.group; // keep original group for context
+                        goto found;
+                    }
+                }
+            }
+        }
+        found:
+        result.push_back(se);
+    }
+    return result;
 }
 
 // ============================================================================
@@ -694,7 +800,7 @@ void CreateUIControls(HWND hWnd) {
     // Initial "All" tab
     TCITEMW tie = {};
     tie.mask = TCIF_TEXT;
-    tie.pszText = (LPWSTR)L"All";
+    tie.pszText = (LPWSTR)L"\x2B50 Summary";
     TabCtrl_InsertItem(g_app.hTabControl, 0, &tie);
 
     // --- ListView ---
@@ -718,22 +824,18 @@ void CreateUIControls(HWND hWnd) {
     SetWindowTheme(g_app.hTabControl, L"DarkMode_Explorer", nullptr);
     SetWindowTheme(g_app.hSearchEdit, L"DarkMode_CFD", nullptr);
 
-    // Add columns
+    // Add initial columns (Summary mode: 2-column)
     LVCOLUMNW lvc = {};
     lvc.mask = LVCF_FMT | LVCF_WIDTH | LVCF_TEXT;
-
     lvc.fmt = LVCFMT_LEFT;
-    lvc.cx = 160;
-    lvc.pszText = (LPWSTR)L"Group";
-    ListView_InsertColumn(g_app.hListView, 0, &lvc);
 
     lvc.cx = 280;
-    lvc.pszText = (LPWSTR)L"Tag";
-    ListView_InsertColumn(g_app.hListView, 1, &lvc);
+    lvc.pszText = (LPWSTR)L"Field";
+    ListView_InsertColumn(g_app.hListView, 0, &lvc);
 
-    lvc.cx = 600;
+    lvc.cx = 700;
     lvc.pszText = (LPWSTR)L"Value";
-    ListView_InsertColumn(g_app.hListView, 2, &lvc);
+    ListView_InsertColumn(g_app.hListView, 1, &lvc);
 
     // --- Buttons ---
     auto createBtn = [&](int id, const wchar_t* text, const wchar_t* icon, bool primary) -> HWND {
@@ -842,19 +944,26 @@ void LoadFileMetadata(const std::wstring& filePath) {
 
     ParseExifToolOutput(output);
 
-    // Update tabs
+    // Build curated summary
+    g_app.summaryEntries = BuildSummaryEntries(g_app.allEntries);
+
+    // Update tabs: Summary | All | Group1 | Group2 | ...
     TabCtrl_DeleteAllItems(g_app.hTabControl);
     TCITEMW tie = {};
     tie.mask = TCIF_TEXT;
-    tie.pszText = (LPWSTR)L"All";
+    tie.pszText = (LPWSTR)L"\x2B50 Summary";  // ⭐ Summary
     TabCtrl_InsertItem(g_app.hTabControl, 0, &tie);
+
+    tie.pszText = (LPWSTR)L"All Fields";
+    TabCtrl_InsertItem(g_app.hTabControl, 1, &tie);
 
     for (int i = 0; i < (int)g_app.groups.size(); i++) {
         tie.pszText = (LPWSTR)g_app.groups[i].c_str();
-        TabCtrl_InsertItem(g_app.hTabControl, i + 1, &tie);
+        TabCtrl_InsertItem(g_app.hTabControl, i + 2, &tie);
     }
 
     g_app.activeGroupIndex = 0;
+    g_app.viewingSummary = true;
     TabCtrl_SetCurSel(g_app.hTabControl, 0);
 
     g_app.searchQuery.clear();
@@ -876,9 +985,31 @@ void FilterEntries() {
     g_app.filteredEntries.clear();
     std::wstring query = ToLower(g_app.searchQuery);
 
+    // Tab 0 = Summary view
+    if (g_app.activeGroupIndex == 0) {
+        g_app.viewingSummary = true;
+        const auto& source = g_app.summaryEntries;
+        for (const auto& e : source) {
+            if (!query.empty()) {
+                std::wstring tagL = ToLower(e.tag);
+                std::wstring valL = ToLower(e.value);
+                if (tagL.find(query) == std::wstring::npos &&
+                    valL.find(query) == std::wstring::npos) {
+                    continue;
+                }
+            }
+            g_app.filteredEntries.push_back(e);
+        }
+        return;
+    }
+
+    g_app.viewingSummary = false;
+
+    // Tab 1 = All Fields
+    // Tab 2+ = specific group (index - 2 into g_app.groups)
     std::wstring activeGroup;
-    if (g_app.activeGroupIndex > 0 && g_app.activeGroupIndex <= (int)g_app.groups.size()) {
-        activeGroup = g_app.groups[g_app.activeGroupIndex - 1];
+    if (g_app.activeGroupIndex >= 2 && (g_app.activeGroupIndex - 2) < (int)g_app.groups.size()) {
+        activeGroup = g_app.groups[g_app.activeGroupIndex - 2];
     }
 
     for (const auto& e : g_app.allEntries) {
@@ -908,19 +1039,59 @@ void PopulateListView() {
     SendMessage(g_app.hListView, WM_SETREDRAW, FALSE, 0);
     ListView_DeleteAllItems(g_app.hListView);
 
-    for (int i = 0; i < (int)g_app.filteredEntries.size(); i++) {
-        const auto& e = g_app.filteredEntries[i];
+    // Reconfigure columns based on view mode
+    // Delete all existing columns first
+    while (ListView_DeleteColumn(g_app.hListView, 0)) {}
 
-        LVITEMW lvi = {};
-        lvi.mask = LVIF_TEXT;
-        lvi.iItem = i;
+    LVCOLUMNW lvc = {};
+    lvc.mask = LVCF_FMT | LVCF_WIDTH | LVCF_TEXT;
+    lvc.fmt = LVCFMT_LEFT;
 
-        lvi.iSubItem = 0;
-        lvi.pszText = (LPWSTR)e.group.c_str();
-        ListView_InsertItem(g_app.hListView, &lvi);
+    if (g_app.viewingSummary) {
+        // 2-column: Field | Value
+        lvc.cx = 280;
+        lvc.pszText = (LPWSTR)L"Field";
+        ListView_InsertColumn(g_app.hListView, 0, &lvc);
 
-        ListView_SetItemText(g_app.hListView, i, 1, (LPWSTR)e.tag.c_str());
-        ListView_SetItemText(g_app.hListView, i, 2, (LPWSTR)e.value.c_str());
+        lvc.cx = 700;
+        lvc.pszText = (LPWSTR)L"Value";
+        ListView_InsertColumn(g_app.hListView, 1, &lvc);
+
+        for (int i = 0; i < (int)g_app.filteredEntries.size(); i++) {
+            const auto& e = g_app.filteredEntries[i];
+            LVITEMW lvi = {};
+            lvi.mask = LVIF_TEXT;
+            lvi.iItem = i;
+            lvi.iSubItem = 0;
+            lvi.pszText = (LPWSTR)e.tag.c_str();
+            ListView_InsertItem(g_app.hListView, &lvi);
+            ListView_SetItemText(g_app.hListView, i, 1, (LPWSTR)e.value.c_str());
+        }
+    } else {
+        // 3-column: Group | Tag | Value
+        lvc.cx = 160;
+        lvc.pszText = (LPWSTR)L"Group";
+        ListView_InsertColumn(g_app.hListView, 0, &lvc);
+
+        lvc.cx = 280;
+        lvc.pszText = (LPWSTR)L"Tag";
+        ListView_InsertColumn(g_app.hListView, 1, &lvc);
+
+        lvc.cx = 600;
+        lvc.pszText = (LPWSTR)L"Value";
+        ListView_InsertColumn(g_app.hListView, 2, &lvc);
+
+        for (int i = 0; i < (int)g_app.filteredEntries.size(); i++) {
+            const auto& e = g_app.filteredEntries[i];
+            LVITEMW lvi = {};
+            lvi.mask = LVIF_TEXT;
+            lvi.iItem = i;
+            lvi.iSubItem = 0;
+            lvi.pszText = (LPWSTR)e.group.c_str();
+            ListView_InsertItem(g_app.hListView, &lvi);
+            ListView_SetItemText(g_app.hListView, i, 1, (LPWSTR)e.tag.c_str());
+            ListView_SetItemText(g_app.hListView, i, 2, (LPWSTR)e.value.c_str());
+        }
     }
 
     SendMessage(g_app.hListView, WM_SETREDRAW, TRUE, 0);
@@ -933,8 +1104,19 @@ void PopulateListView() {
 void UpdateStatusBar() {
     std::wstring status;
     if (g_app.fileLoaded) {
-        status = L"  Showing " + std::to_wstring(g_app.filteredEntries.size())
-               + L" / " + std::to_wstring(g_app.allEntries.size()) + L" fields";
+        if (g_app.viewingSummary) {
+            // Count how many summary fields have actual values
+            int found = 0;
+            for (const auto& e : g_app.summaryEntries) {
+                if (e.value != L"\x2014") found++;
+            }
+            status = L"  \x2B50 Summary — " + std::to_wstring(found) + L" / "
+                   + std::to_wstring(g_app.summaryEntries.size()) + L" fields found  |  "
+                   + std::to_wstring(g_app.allEntries.size()) + L" total tags";
+        } else {
+            status = L"  Showing " + std::to_wstring(g_app.filteredEntries.size())
+                   + L" / " + std::to_wstring(g_app.allEntries.size()) + L" fields";
+        }
     } else {
         status = L"  Ready — Drop a file or click Open";
     }
@@ -1133,30 +1315,44 @@ LRESULT HandleListViewCustomDraw(LPNMLVCUSTOMDRAW pCD) {
             pCD->clrTextBk = Theme::BgDark;
         }
 
-        // Color by column
-        switch (col) {
-        case 0: // Group
-            pCD->clrText = Theme::TextAccent;
-            break;
-        case 1: // Tag
-            pCD->clrText = Theme::TextCyan;
-            break;
-        case 2: // Value
-            pCD->clrText = Theme::TextPrimary;
-            break;
-        }
+        if (g_app.viewingSummary) {
+            // Summary mode: 2 columns (Field | Value)
+            if (row < (int)g_app.filteredEntries.size()) {
+                const auto& entry = g_app.filteredEntries[row];
+                bool hasMissing = (entry.value == L"\x2014"); // em-dash = not found
 
-        // Highlight "Identified Camera" and "Identified Lens" rows
-        if (row < (int)g_app.filteredEntries.size()) {
-            const auto& entry = g_app.filteredEntries[row];
-            if (entry.tag.find(L"Identified Camera") != std::wstring::npos) {
-                pCD->clrText = Theme::TextGreen;
-                pCD->clrTextBk = RGB(20, 40, 30);
+                if (col == 0) {
+                    // Field name
+                    pCD->clrText = hasMissing ? Theme::TextMuted : Theme::TextCyan;
+                } else {
+                    // Value
+                    if (hasMissing) {
+                        pCD->clrText = RGB(60, 60, 80); // very dim for missing
+                    } else {
+                        pCD->clrText = Theme::TextPrimary;
+                    }
+                }
             }
-            if (entry.tag.find(L"Identified Lens") != std::wstring::npos ||
-                (entry.group == L"Camera Info" && entry.tag.find(L"Lens") != std::wstring::npos)) {
-                pCD->clrText = Theme::TextOrange;
-                pCD->clrTextBk = RGB(40, 32, 18);
+        } else {
+            // All-fields mode: 3 columns (Group | Tag | Value)
+            switch (col) {
+            case 0: pCD->clrText = Theme::TextAccent; break;
+            case 1: pCD->clrText = Theme::TextCyan;   break;
+            case 2: pCD->clrText = Theme::TextPrimary; break;
+            }
+
+            // Highlight camera/lens identification rows
+            if (row < (int)g_app.filteredEntries.size()) {
+                const auto& entry = g_app.filteredEntries[row];
+                if (entry.tag.find(L"Identified Camera") != std::wstring::npos) {
+                    pCD->clrText = Theme::TextGreen;
+                    pCD->clrTextBk = RGB(20, 40, 30);
+                }
+                if (entry.tag.find(L"Identified Lens") != std::wstring::npos ||
+                    (entry.group == L"Camera Info" && entry.tag.find(L"Lens") != std::wstring::npos)) {
+                    pCD->clrText = Theme::TextOrange;
+                    pCD->clrTextBk = RGB(40, 32, 18);
+                }
             }
         }
 
@@ -1359,9 +1555,11 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam) {
         if (id == IDC_CLEAR_BTN) {
             g_app.allEntries.clear();
             g_app.filteredEntries.clear();
+            g_app.summaryEntries.clear();
             g_app.groups.clear();
             g_app.currentFile.clear();
             g_app.fileLoaded = false;
+            g_app.viewingSummary = true;
             g_app.searchQuery.clear();
             g_app.activeGroupIndex = 0;
             SetWindowTextW(g_app.hSearchEdit, L"");
@@ -1369,7 +1567,7 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam) {
             TabCtrl_DeleteAllItems(g_app.hTabControl);
             TCITEMW tie = {};
             tie.mask = TCIF_TEXT;
-            tie.pszText = (LPWSTR)L"All";
+            tie.pszText = (LPWSTR)L"\x2B50 Summary";
             TabCtrl_InsertItem(g_app.hTabControl, 0, &tie);
             SendMessage(g_app.hStatusBar, SB_SETTEXTW, 0, (LPARAM)L"  Ready — Drop a file or click Open");
             SendMessage(g_app.hStatusBar, SB_SETTEXTW, 1, (LPARAM)L"  No file loaded");

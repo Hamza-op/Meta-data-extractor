@@ -15,5 +15,8 @@
 #define IDC_CLEAR_BTN       1009
 #define IDC_COPY_BTN        1010
 
+// View mode
+#define IDC_SUMMARY_LV      1011
+
 // Embedded ExifTool binary resource
 #define IDR_EXIFTOOL        2000

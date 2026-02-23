@@ -1,0 +1,54 @@
+#include <winver.h>
+#include "resource.h"
+
+// Enable Visual Styles (modern controls)
+#pragma comment(linker,"\"/manifestdependency:type='win32' name='Microsoft.Windows.Common-Controls' version='6.0.0.0' processorArchitecture='*' publicKeyToken='6595b64144ccf1df' language='*'\"")
+
+// Version Info
+VS_VERSION_INFO VERSIONINFO
+FILEVERSION     1,0,0,0
+PRODUCTVERSION  1,0,0,0
+FILEFLAGSMASK   VS_FFI_FILEFLAGSMASK
+FILEFLAGS       0
+FILEOS          VOS__WINDOWS32
+FILETYPE        VFT_APP
+FILESUBTYPE     VFT2_UNKNOWN
+BEGIN
+    BLOCK "StringFileInfo"
+    BEGIN
+        BLOCK "040904b0"
+        BEGIN
+            VALUE "CompanyName",      "MetaLens"
+            VALUE "FileDescription",  "MetaLens - Deep Metadata Analyzer"
+            VALUE "FileVersion",      "1.0.0.0"
+            VALUE "InternalName",     "MetaLens"
+            VALUE "OriginalFilename", "MetaLens.exe"
+            VALUE "ProductName",      "MetaLens"
+            VALUE "ProductVersion",   "1.0.0.0"
+        END
+    END
+    BLOCK "VarFileInfo"
+    BEGIN
+        VALUE "Translation", 0x0409, 1200
+    END
+END
+
+// Application Manifest for DPI awareness + visual styles
+IDR_MANIFEST RT_MANIFEST
+BEGIN
+    "<?xml version=""1.0"" encoding=""UTF-8"" standalone=""yes""?>\r\n"
+    "<assembly xmlns=""urn:schemas-microsoft-com:asm.v1"" manifestVersion=""1.0"">\r\n"
+    "  <assemblyIdentity version=""1.0.0.0"" processorArchitecture=""*"" name=""MetaLens"" type=""win32""/>\r\n"
+    "  <dependency>\r\n"
+    "    <dependentAssembly>\r\n"
+    "      <assemblyIdentity type=""win32"" name=""Microsoft.Windows.Common-Controls"" version=""6.0.0.0"" processorArchitecture=""*"" publicKeyToken=""6595b64144ccf1df"" language=""*""/>\r\n"
+    "    </dependentAssembly>\r\n"
+    "  </dependency>\r\n"
+    "  <application xmlns=""urn:schemas-microsoft-com:asm.v3"">\r\n"
+    "    <windowsSettings>\r\n"
+    "      <dpiAware xmlns=""http://schemas.microsoft.com/SMI/2005/WindowsSettings"">true/pm</dpiAware>\r\n"
+    "      <dpiAwareness xmlns=""http://schemas.microsoft.com/SMI/2016/WindowsSettings"">PerMonitorV2</dpiAwareness>\r\n"
+    "    </windowsSettings>\r\n"
+    "  </application>\r\n"
+    "</assembly>\r\n"
+END

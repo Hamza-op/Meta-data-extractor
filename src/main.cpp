@@ -277,9 +277,9 @@ int WINAPI wWinMain(HINSTANCE hInstance, HINSTANCE, LPWSTR lpCmdLine, int nCmdSh
 }
 
 // ============================================================================
-// Extract Embedded ExifTool from Resources
+// Extract Embedded ExifTool Zip from Resources
 // ============================================================================
-bool ExtractEmbeddedExifTool(const std::wstring& targetPath) {
+bool ExtractEmbeddedExifTool(const std::wstring& destDir) {
     HRSRC hRes = FindResourceW(nullptr, MAKEINTRESOURCEW(IDR_EXIFTOOL), RT_RCDATA);
     if (!hRes) return false;
 
@@ -291,15 +291,11 @@ bool ExtractEmbeddedExifTool(const std::wstring& targetPath) {
     if (!pData || dataSize == 0) return false;
 
     // Create directory if needed
-    std::wstring dir = targetPath;
-    size_t lastSlash = dir.find_last_of(L"\\/");
-    if (lastSlash != std::wstring::npos) {
-        dir = dir.substr(0, lastSlash);
-        CreateDirectoryW(dir.c_str(), nullptr);
-    }
+    CreateDirectoryW(destDir.c_str(), nullptr);
 
-    // Write to file
-    HANDLE hFile = CreateFileW(targetPath.c_str(), GENERIC_WRITE, 0, nullptr,
+    // Write zip to temp location
+    std::wstring zipPath = destDir + L"\\payload.zip";
+    HANDLE hFile = CreateFileW(zipPath.c_str(), GENERIC_WRITE, 0, nullptr,
                                CREATE_ALWAYS, FILE_ATTRIBUTE_NORMAL, nullptr);
     if (hFile == INVALID_HANDLE_VALUE) return false;
 
@@ -307,7 +303,27 @@ bool ExtractEmbeddedExifTool(const std::wstring& targetPath) {
     BOOL ok = WriteFile(hFile, pData, dataSize, &written, nullptr);
     CloseHandle(hFile);
 
-    return ok && written == dataSize;
+    if (!ok || written != dataSize) return false;
+
+    // Extract using tar.exe (built-in on Windows 10+)
+    std::wstring cmd = L"tar.exe -xf payload.zip";
+    
+    STARTUPINFOW si = { sizeof(si) };
+    si.dwFlags = STARTF_USESHOWWINDOW;
+    si.wShowWindow = SW_HIDE; // Hidden window
+    PROCESS_INFORMATION pi = {};
+    
+    if (CreateProcessW(nullptr, (LPWSTR)cmd.c_str(), nullptr, nullptr, FALSE,
+                       CREATE_NO_WINDOW, nullptr, destDir.c_str(), &si, &pi)) {
+        WaitForSingleObject(pi.hProcess, 60000); // give it up to 60 seconds to unzip
+        CloseHandle(pi.hProcess);
+        CloseHandle(pi.hThread);
+    }
+
+    // Clean up zip
+    DeleteFileW(zipPath.c_str());
+
+    return true;
 }
 
 // ============================================================================
@@ -317,21 +333,20 @@ std::wstring FindExifTool() {
     // 1. Try extracting embedded ExifTool from our resources
     wchar_t tempPath[MAX_PATH];
     GetTempPathW(MAX_PATH, tempPath);
-    std::wstring embeddedPath = std::wstring(tempPath) + L"MetaLens\\exiftool.exe";
+    std::wstring embedDir = std::wstring(tempPath) + L"MetaLens";
+    std::wstring embeddedPath = embedDir + L"\\exiftool.exe";
+    std::wstring embeddedFiles = embedDir + L"\\exiftool_files";
 
-    // Check if already extracted and valid
-    if (PathFileExistsW(embeddedPath.c_str())) {
-        // Verify it's not empty / corrupt (at least 100KB for exiftool)
-        WIN32_FILE_ATTRIBUTE_DATA fad;
-        if (GetFileAttributesExW(embeddedPath.c_str(), GetFileExInfoStandard, &fad) &&
-            fad.nFileSizeLow > 100000) {
-            return embeddedPath;
-        }
+    // Check if already extracted and valid (wrapper + files dir)
+    if (PathFileExistsW(embeddedPath.c_str()) && PathFileExistsW(embeddedFiles.c_str())) {
+        return embeddedPath;
     }
 
     // Try to extract from embedded resource
-    if (ExtractEmbeddedExifTool(embeddedPath)) {
-        return embeddedPath;
+    if (ExtractEmbeddedExifTool(embedDir)) {
+        if (PathFileExistsW(embeddedPath.c_str())) {
+            return embeddedPath;
+        }
     }
 
     // 2. Check alongside our exe

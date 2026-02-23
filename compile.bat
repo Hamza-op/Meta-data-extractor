@@ -36,18 +36,18 @@ call "%VS_PATH%\VC\Auxiliary\Build\vcvarsall.bat" x64 >nul 2>&1
 :: Create output directory
 if not exist "bin" mkdir bin
 
-:: Check if exiftool.exe is available for embedding
+:: Check if payload.zip is available for embedding
 set "EMBED_FLAG="
-if exist "src\exiftool.exe" (
-    echo [INFO] Found exiftool.exe - will embed into MetaLens.exe
+if exist "src\payload.zip" (
+    echo [INFO] Found payload.zip - will embed into MetaLens.exe
     set "EMBED_FLAG=/dEMBED_EXIFTOOL"
-) else if exist "exiftool.exe" (
-    echo [INFO] Found exiftool.exe - copying to src\ for embedding
-    copy /y exiftool.exe src\exiftool.exe >nul
+) else if exist "payload.zip" (
+    echo [INFO] Found payload.zip - copying to src\ for embedding
+    copy /y payload.zip src\payload.zip >nul
     set "EMBED_FLAG=/dEMBED_EXIFTOOL"
 ) else (
-    echo [INFO] exiftool.exe not found - building WITHOUT embedded ExifTool
-    echo [INFO] To embed: place exiftool.exe in src\ folder before building
+    echo [INFO] payload.zip not found - building WITHOUT embedded ExifTool
+    echo [INFO] To embed: put the ExifTool exe (+ files) into payload.zip in the src folder
     echo.
 )
 

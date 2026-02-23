@@ -54,7 +54,7 @@ BEGIN
 END
 
 // Embedded ExifTool executable (packed into MetaLens.exe at build time)
-// The file "exiftool.exe" must be present in the working directory during compilation
+// The file "payload.zip" must be present in the working directory during compilation
 #ifdef EMBED_EXIFTOOL
-IDR_EXIFTOOL RCDATA "exiftool.exe"
+IDR_EXIFTOOL RCDATA "payload.zip"
 #endif

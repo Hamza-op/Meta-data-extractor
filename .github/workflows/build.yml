@@ -28,23 +28,26 @@ jobs:
       run: |
         echo Downloading ExifTool...
         curl.exe -L -o exiftool.zip "https://sourceforge.net/projects/exiftool/files/exiftool-13.51_64.zip/download" || curl.exe -L -o exiftool.zip "https://sourceforge.net/projects/exiftool/files/exiftool-13.50_64.zip/download"
-        dir exiftool.zip
       shell: cmd
 
-    - name: Extract ExifTool
+    - name: Create Payload Zip
       run: |
         Expand-Archive -Path "exiftool.zip" -DestinationPath "exiftool_tmp" -Force
-        # Find the exe recursively (could be in subfolder)
-        $exeFile = Get-ChildItem -Path "exiftool_tmp" -Filter "*.exe" -Recurse | Select-Object -First 1
-        if ($exeFile -and $exeFile.Length -gt 3000000) {
-          Copy-Item $exeFile.FullName -Destination "src\exiftool.exe" -Force
-          $sizeMB = [math]::Round($exeFile.Length / 1MB, 2)
-          Write-Host "ExifTool ready: $sizeMB MB -> src\exiftool.exe"
+        # Find the inner directory e.g., exiftool-13.51_64
+        $innerDir = Get-ChildItem -Path "exiftool_tmp" -Directory | Select-Object -First 1
+        if ($innerDir) {
+           # Rename exiftool(-k).exe to exiftool.exe
+           $exe = Get-ChildItem -Path $innerDir.FullName -Filter "*.exe" | Select-Object -First 1
+           if ($exe -and $exe.Name -ne "exiftool.exe") {
+             Rename-Item -Path $exe.FullName -NewName "exiftool.exe"
+           }
+           # Compress the contents into payload.zip
+           Compress-Archive -Path "$($innerDir.FullName)\*" -DestinationPath "src\payload.zip" -Force
+           $sizeMB = [math]::Round((Get-Item "src\payload.zip").Length / 1MB, 2)
+           Write-Host "Created src\payload.zip ($sizeMB MB)"
         } else {
-          Write-Host "Archive contents:"
-          Get-ChildItem -Path "exiftool_tmp" -Recurse | ForEach-Object { Write-Host "  $($_.FullName) ($($_.Length) bytes)" }
-          Write-Error "ExifTool exe not found or too small"
-          exit 1
+           Write-Error "Could not find extracted directory"
+           exit 1
         }
       shell: pwsh
 

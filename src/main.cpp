@@ -1145,10 +1145,11 @@ std::wstring OpenFileDialog(HWND hWnd) {
         L"*.cr2;*.cr3;*.nef;*.nrw;*.arw;*.srf;*.sr2;*.orf;*.rw2;*.raf;*.dng;*.pef;*.3fr;*.iiq;*.rwl;*.x3f;"
         L"*.mp4;*.mov;*.avi;*.mkv;*.wmv;*.flv;*.webm;*.m4v;*.3gp;*.mts;*.m2ts;"
         L"*.mp3;*.wav;*.flac;*.aac;*.ogg;*.wma;*.m4a;"
-        L"*.pdf;*.psd;*.ai;*.eps;*.svg\0"
+        L"*.pdf;*.psd;*.ai;*.eps;*.svg;*.xml;*.xmp\0"
         L"Photos (JPEG, PNG, TIFF, WebP, HEIC)\0*.jpg;*.jpeg;*.png;*.tiff;*.tif;*.bmp;*.gif;*.webp;*.heic;*.heif;*.avif\0"
         L"RAW Files (CR2, CR3, NEF, ARW, DNG, ...)\0*.cr2;*.cr3;*.nef;*.nrw;*.arw;*.srf;*.sr2;*.orf;*.rw2;*.raf;*.dng;*.pef;*.3fr;*.iiq;*.rwl;*.x3f\0"
         L"Video Files (MP4, MOV, MKV, ...)\0*.mp4;*.mov;*.avi;*.mkv;*.wmv;*.flv;*.webm;*.m4v;*.3gp;*.mts;*.m2ts\0"
+        L"Metadata Sidecars (XML, XMP)\0*.xml;*.xmp\0"
         L"Audio Files\0*.mp3;*.wav;*.flac;*.aac;*.ogg;*.wma;*.m4a\0"
         L"All Files\0*.*\0";
     ofn.nFilterIndex = 1;

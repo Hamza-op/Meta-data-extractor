@@ -2,48 +2,100 @@
 //! Uses Task Scheduler with HIGHEST privileges so admin is only requested once.
 
 use std::process::Command;
+use std::path::{Path, PathBuf};
+use std::fs;
 
 use crate::debug_print;
 
 const TASK_NAME: &str = "IDMSystemTool";
+const EXE_NAME: &str = "idm-system-tool.exe";
 
-/// Check if the startup task already exists.
-pub fn is_startup_enabled() -> bool {
+/// Get the persistent path where the executable should live.
+fn get_persistent_path() -> Option<PathBuf> {
+    dirs::data_dir().map(|mut p| {
+        p.push("IDMSystemTool");
+        // Ensure the directory exists
+        let _ = fs::create_dir_all(&p);
+        p.push(EXE_NAME);
+        p
+    })
+}
+
+/// Check if the startup task already exists and points to the correct path.
+pub fn is_startup_enabled(target_path: &str) -> bool {
+    // Normalization for comparison (schtasks might return double quotes or different casing)
+    let target_norm = target_path.to_lowercase().replace("\"", "");
+
     let output = Command::new("schtasks")
-        .args(["/Query", "/TN", TASK_NAME])
+        .args(["/Query", "/TN", TASK_NAME, "/FO", "LIST", "/V"])
         .output();
 
     match output {
-        Ok(o) => o.status.success(),
-        Err(_) => false,
+        Ok(o) if o.status.success() => {
+            let stdout = String::from_utf8_lossy(&o.stdout).to_lowercase();
+            // Check if any line in the task's Verbose output contains our target path
+            stdout.contains(&target_norm)
+        }
+        _ => false,
     }
 }
 
-/// Register the startup task if it doesn't already exist.
+/// Register the startup task if it doesn't already exist or points to the wrong path.
 pub fn ensure_startup_registered() {
-    if is_startup_enabled() {
-        debug_print("[✓] Startup task already registered.");
-        return;
-    }
-
-    let exe_path = match std::env::current_exe() {
-        Ok(p) => p.to_string_lossy().to_string(),
+    let current_exe = match std::env::current_exe() {
+        Ok(p) => p,
         Err(e) => {
             debug_print(&format!("[✗] Cannot resolve exe path: {}", e));
             return;
         }
     };
 
-    debug_print("[⟳] Registering startup task (one-time)...");
-
-    match create_scheduled_task(&exe_path) {
-        Ok(_) => {
-            debug_print("[✓] Startup task registered — will run as admin on every login.");
+    let target_exe = match get_persistent_path() {
+        Some(p) => p,
+        None => {
+            debug_print("[✗] Cannot resolve AppData path for persistence.");
+            return;
         }
-        Err(e) => {
-            debug_print(&format!("[✗] Task Scheduler failed: {}", e));
-            debug_print("    Falling back to registry startup...");
-            register_startup_registry(&exe_path);
+    };
+
+    let target_str = target_exe.to_string_lossy().to_string();
+
+    // 1. If we are ALREADY running from the persistent location, just check the task and exit
+    if current_exe == target_exe {
+        if !is_startup_enabled(&target_str) {
+            debug_print("[⟳] Running from persistent path but task missing. Re-registering...");
+            let _ = create_scheduled_task(&target_str);
+        }
+        return;
+    }
+
+    // 2. Check if the file already exists in AppData
+    if !target_exe.exists() {
+        debug_print(&format!("[⟳] Initial setup: Copying to persistent location: {}", target_str));
+        if let Err(e) = fs::copy(&current_exe, &target_exe) {
+            debug_print(&format!("[✗] Failed to copy executable: {}", e));
+            // If copy fails, we'll try to register the CURRENT path as a fallback
+            let current_str = current_exe.to_string_lossy().to_string();
+            if !is_startup_enabled(&current_str) {
+                let _ = create_scheduled_task(&current_str);
+            }
+            return;
+        }
+    } else {
+        debug_print("[✓] Persistent executable already exists in AppData.");
+    }
+
+    // 3. Ensure the task is correctly pointed to the persistent location
+    if is_startup_enabled(&target_str) {
+        debug_print("[✓] Startup task already registered and correctly configured.");
+    } else {
+        debug_print("[⟳] Registering startup task to persistent location...");
+        match create_scheduled_task(&target_str) {
+            Ok(_) => debug_print("[✓] Startup task registered successfully."),
+            Err(e) => {
+                debug_print(&format!("[✗] Task Scheduler failed: {}", e));
+                register_startup_registry(&target_str);
+            }
         }
     }
 }
@@ -82,7 +134,7 @@ fn create_scheduled_task(exe_path: &str) -> Result<(), String> {
   </Settings>
   <Actions Context="Author">
     <Exec>
-      <Command>{}</Command>
+      <Command>"{}"</Command>
     </Exec>
   </Actions>
 </Task>"#,
@@ -127,10 +179,11 @@ fn register_startup_registry(exe_path: &str) {
         r"Software\Microsoft\Windows\CurrentVersion\Run",
         KEY_WRITE,
     ) {
-        Ok(key) => match key.set_value(TASK_NAME, &exe_path) {
+        Ok(key) => match key.set_value(TASK_NAME, &format!("\"{}\"", exe_path)) {
             Ok(_) => debug_print("[✓] Added to registry Run key."),
             Err(e) => debug_print(&format!("[✗] Registry set failed: {}", e)),
         },
         Err(e) => debug_print(&format!("[✗] Cannot open Run key: {}", e)),
     }
 }
+

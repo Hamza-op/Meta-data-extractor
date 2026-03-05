@@ -8,28 +8,13 @@ pub fn optimize_for_gaming() {
     debug_print("");
     debug_print("[⟳] Phase 3: Optimizing Windows for gaming...");
 
-    // 1. Enable Game Mode
     enable_game_mode();
-
-    // 2. Disable Xbox Game DVR (can cause stuttering)
     disable_game_dvr();
-
-    // 3. Set Power Plan to High Performance
     set_high_performance_power_plan();
-    
-    // 4. Flush DNS to improve network/multiplayer latency
     flush_dns();
-
-    // 5. TCP/IP Network Optimizations
     optimize_network();
-
-    // 6. Memory Standby List flush
     clear_standby_memory();
-
-    // 7. Disable Mouse Acceleration (Enhance Pointer Precision)
     disable_mouse_acceleration();
-
-    // 8. Disable Nagle's Algorithm (TCPNoDelay / TcpAckFrequency)
     disable_nagles_algorithm();
 
     debug_print("  [✓] Gaming optimizations applied.");
@@ -40,42 +25,39 @@ pub fn optimize_system_and_privacy() {
     debug_print("[⟳] Phase 5: Optimizing System & Privacy...");
 
     disable_telemetry();
-    
     disable_hibernation();
-    
     clear_event_logs();
-    
+
     debug_print("  [✓] System and Privacy optimizations applied.");
 }
 
 pub fn optimize_for_adobe() {
     debug_print("");
     debug_print("[⟳] Phase 4: Optimizing Adobe software...");
-    
-    // Kill bloated background services which steal RAM and CPU
+
     kill_adobe_background_processes();
-    
+
     debug_print("  [✓] Adobe optimizations applied.");
 }
 
 fn kill_adobe_background_processes() {
-    let processes = [
+    [
         "AdobeIPCBroker.exe",
         "CCLibrary.exe",
         "CCXProcess.exe",
         "CoreSync.exe",
         "Adobe Desktop Service.exe",
         "AdobeUpdateService.exe",
-        "AGMService.exe",     // Adobe Genuine Monitor Service
-        "AGSService.exe",     // Adobe Genuine Software Integrity Service
-        "ArmUI.exe",          // Adobe Reader and Acrobat Manager
-    ];
-
-    for proc in &processes {
+        "AGMService.exe",
+        "AGSService.exe",
+        "ArmUI.exe",
+    ]
+    .iter()
+    .for_each(|proc| {
         let _ = Command::new("taskkill")
             .args(&["/f", "/im", proc])
             .output();
-    }
+    });
     debug_print("    ✓ Adobe background processes terminated.");
 }
 
@@ -103,17 +85,13 @@ fn disable_game_dvr() {
 }
 
 fn set_high_performance_power_plan() {
-    // 8c5e7fda-e8bf-4a96-9a85-a6e23a8c635c is High Performance
     let output = Command::new("powercfg")
         .args(&["/setactive", "8c5e7fda-e8bf-4a96-9a85-a6e23a8c635c"])
         .output();
-        
+
     if let Ok(o) = output {
         if o.status.success() {
             debug_print("    ✓ Power plan set to High Performance.");
-        } else {
-            // Just fail silently if the power plan doesn't exist 
-            // Often Ultimate Performance gets removed or isn't on un-unlocked systems
         }
     }
 }
@@ -130,15 +108,11 @@ fn flush_dns() {
 }
 
 fn optimize_network() {
-    // Disable network heuristics
     let _ = Command::new("netsh").args(&["int", "tcp", "set", "heuristics", "disabled"]).output();
-    // Set auto-tuning normal
     let _ = Command::new("netsh").args(&["int", "tcp", "set", "global", "autotuninglevel=normal"]).output();
-    // Disable ECN Capability
     let _ = Command::new("netsh").args(&["int", "tcp", "set", "global", "ecncapability=disabled"]).output();
-    // Enable Receive Side Scaling (RSS)
     let _ = Command::new("netsh").args(&["int", "tcp", "set", "global", "rss=enabled"]).output();
-    
+
     debug_print("    ✓ Network TCP/IP settings optimized for lower gaming latency.");
 }
 
@@ -156,18 +130,18 @@ $type::NtSetSystemInformation(80, $ptr, 4)
     let _ = Command::new("powershell")
         .args(&["-NoProfile", "-NonInteractive", "-Command", ps_script])
         .output();
-        
+
     debug_print("    ✓ Cleared System Memory Standby List.");
 }
 
 fn disable_telemetry() {
-    // SysMain is SuperFetch (disabling is good for SSDs + gaming/perf)
-    let services = ["DiagTrack", "dmwappushservice", "SysMain"];
-    for srv in &services {
-        let _ = Command::new("sc").args(&["stop", srv]).output();
-        let _ = Command::new("sc").args(&["config", srv, "start=", "disabled"]).output();
-    }
-    
+    ["DiagTrack", "dmwappushservice", "SysMain"]
+        .iter()
+        .for_each(|srv| {
+            let _ = Command::new("sc").args(&["stop", srv]).output();
+            let _ = Command::new("sc").args(&["config", srv, "start=", "disabled"]).output();
+        });
+
     let hklm = RegKey::predef(HKEY_LOCAL_MACHINE);
     if let Ok((key, _)) = hklm.create_subkey(r"SOFTWARE\Policies\Microsoft\Windows\DataCollection") {
         let _ = key.set_value("AllowTelemetry", &0u32);
@@ -212,11 +186,12 @@ fn disable_hibernation() {
 }
 
 fn clear_event_logs() {
-    let logs = ["Application", "Security", "Setup", "System"];
-    for log in &logs {
-        let _ = Command::new("wevtutil")
-            .args(&["cl", log])
-            .output();
-    }
+    ["Application", "Security", "Setup", "System"]
+        .iter()
+        .for_each(|log| {
+            let _ = Command::new("wevtutil")
+                .args(&["cl", log])
+                .output();
+        });
     debug_print("    ✓ Windows Event Logs cleared.");
 }

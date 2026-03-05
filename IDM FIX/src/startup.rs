@@ -2,7 +2,7 @@
 //! Uses Task Scheduler with HIGHEST privileges so admin is only requested once.
 
 use std::process::Command;
-use std::path::{Path, PathBuf};
+use std::path::PathBuf;
 use std::fs;
 
 use crate::debug_print;

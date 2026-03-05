@@ -80,30 +80,54 @@ pub fn reset_activation() {
 // ─────────────────────────────────────────────────────────────
 
 pub fn fix_popup() {
-    debug_print("[⟳] Fixing IDM update popup...");
+    debug_print("[⟳] Applying permanent IDM popup fix...");
     let hkcu = RegKey::predef(HKEY_CURRENT_USER);
 
+    // 1. Registry Date Manipulation (Trick IDM into thinking it checked far in the future)
     match hkcu.open_subkey_with_flags(r"Software\DownloadManager", KEY_READ | KEY_WRITE) {
         Ok(key) => {
-            let current: Result<u32, _> = key.get_value("CheckUpdtVM");
-            match current {
-                Ok(0) => debug_print("  [✓] Already disabled."),
-                Ok(_) | Err(_) => {
-                    match key.set_value("CheckUpdtVM", &0u32) {
-                        Ok(_) => debug_print("  [✓] CheckUpdtVM set to 0 — popup disabled."),
-                        Err(e) => debug_print(&format!("  [✗] Failed: {}", e)),
-                    }
-                }
+            let _ = key.set_value("LastCheckQU", &0x99999999u32);
+            let _ = key.set_value("LstCheck", &"01/01/99");
+            let _ = key.set_value("CheckUpdtVM", &0u32);
+            debug_print("  [✓] Registry check dates set to the year 2099.");
+        }
+        Err(_) => debug_print("  [✗] IDM registry path not found."),
+    }
+
+    // 2. Disable IDMGrHlp.exe (The actual popup trigger)
+    disable_idm_helper();
+}
+
+fn disable_idm_helper() {
+    let hkcu = RegKey::predef(HKEY_CURRENT_USER);
+    let idm_path = match hkcu.open_subkey(r"Software\DownloadManager") {
+        Ok(key) => key.get_value::<String, _>("ExePath").map(|p| {
+            std::path::Path::new(&p).parent().unwrap_or_else(|| std::path::Path::new("")).to_path_buf()
+        }).unwrap_or_default(),
+        Err(_) => return,
+    };
+
+    if idm_path.as_os_str().is_empty() { return; }
+
+    let helper_path = idm_path.join("IDMGrHlp.exe");
+    if helper_path.exists() {
+        debug_print("  [⟳] Disabling IDMGrHlp.exe...");
+        
+        kill_idm();
+
+        let backup_path = idm_path.join("IDMGrHlp.exe.bak");
+        
+        if !backup_path.exists() {
+            if let Err(e) = std::fs::rename(&helper_path, &backup_path) {
+                debug_print(&format!("  [✗] Failed to rename helper: {}", e));
+                return;
             }
         }
-        Err(_) => {
-            // Try creating the key
-            if let Ok((key, _)) = hkcu.create_subkey(r"Software\DownloadManager") {
-                let _ = key.set_value("CheckUpdtVM", &0u32);
-                debug_print("  [✓] Created CheckUpdtVM = 0");
-            } else {
-                debug_print("  [✗] IDM registry path not accessible.");
-            }
+
+        if let Err(e) = std::fs::write(&helper_path, "") {
+            debug_print(&format!("  [✗] Failed to create dummy helper: {}", e));
+        } else {
+            debug_print("  [✓] IDMGrHlp.exe neutralized.");
         }
     }
 }
@@ -151,26 +175,15 @@ fn delete_settings_backup() {
 fn delete_queue() {
     let hkcu = RegKey::predef(HKEY_CURRENT_USER);
 
-    let values_to_delete = [
-        "FName",
-        "LName",
-        "Email",
-        "Serial",
-        "scansk",
-        "tvfrdt",
-        "radxcnt",
-        "LstCheck",
-        "ptrk_scdt",
-        "LastCheckQU",
-    ];
-
     if let Ok(key) = hkcu.open_subkey_with_flags(r"Software\DownloadManager", KEY_ALL_ACCESS) {
-        for val in &values_to_delete {
-            match key.delete_value(val) {
-                Ok(_) => debug_print(&format!("    Deleted — HKCU\\Software\\DownloadManager\\{}", val)),
-                Err(_) => {} // value didn't exist — fine
-            }
-        }
+        ["FName", "LName", "Email", "Serial", "scansk", "tvfrdt", "radxcnt", "LstCheck", "ptrk_scdt", "LastCheckQU"]
+            .iter()
+            .for_each(|val| {
+                match key.delete_value(val) {
+                    Ok(_) => debug_print(&format!("    Deleted — HKCU\\Software\\DownloadManager\\{}", val)),
+                    Err(_) => {} // value didn't exist — fine
+                }
+            });
     }
 
     // Delete HKLM IDM key (bat line 509)
@@ -219,23 +232,20 @@ fn add_driver_key() {
 // ─────────────────────────────────────────────────────────────
 
 /// Enumerate CLSID, identify IDM tracking keys, and delete them.
-/// When `take_permission` is true, on deletion failure it will
-/// take ownership + reset ACL then retry (mirrors bat :delete_key logic).
 fn delete_clsid_keys(take_permission: bool) {
     let hkcu = RegKey::predef(HKEY_CURRENT_USER);
-    let clsid_paths = get_clsid_paths();
 
-    for clsid_path in clsid_paths {
+    get_clsid_paths().iter().for_each(|clsid_path| {
         debug_print(&format!("    [⟳] Scanning CLSID path: {}...", clsid_path));
         let clsid_key = match hkcu.open_subkey(clsid_path) {
             Ok(k) => k,
             Err(_) => {
                 debug_print("    [i] CLSID path not found, skipping.");
-                continue;
+                return;
             }
         };
 
-        // Collect names first to avoid borrow issues
+        // Collect names using iterator chain — no explicit for-loop
         let keys_to_delete: Vec<String> = clsid_key
             .enum_keys()
             .filter_map(|r| r.ok())
@@ -244,29 +254,25 @@ fn delete_clsid_keys(take_permission: bool) {
 
         if keys_to_delete.is_empty() {
             debug_print("    [i] No IDM CLSID tracking keys found in this path.");
-            continue;
+            return;
         }
 
         debug_print(&format!("    [i] Found {} IDM tracking key(s).", keys_to_delete.len()));
 
-        // Open with write access for deletion
         let clsid_write = match hkcu.open_subkey_with_flags(clsid_path, KEY_ALL_ACCESS) {
             Ok(k) => k,
             Err(e) => {
                 debug_print(&format!("    [✗] Cannot open CLSID with write access: {}", e));
-                continue;
+                return;
             }
         };
 
-        for key_name in &keys_to_delete {
-            // First try direct deletion (bat: reg delete %reg% /f)
+        keys_to_delete.iter().for_each(|key_name| {
             match clsid_write.delete_subkey_all(key_name) {
                 Ok(_) => {
                     debug_print(&format!("    Deleted — {}", key_name));
                 }
                 Err(_) if take_permission => {
-                    // Mirrors bat :delete_key lines 599-602:
-                    // if errorlevel != 0 AND take_permission is set → call :reg_own then retry
                     let full_path = format!("HKCU\\{}\\{}", clsid_path, key_name);
                     debug_print(&format!("    [⟳] Taking ownership of {}...", key_name));
                     take_ownership_and_delete(&full_path);
@@ -275,8 +281,8 @@ fn delete_clsid_keys(take_permission: bool) {
                     debug_print(&format!("    [✗] Failed — {}", key_name));
                 }
             }
-        }
-    }
+        });
+    });
 }
 
 /// GUID format check: {xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx}
@@ -293,21 +299,20 @@ fn is_idm_clsid_key(parent: &RegKey, name: &str) -> bool {
     };
 
     // bat line 564: skip if has LocalServer32 / InProcServer32 / InProcHandler32
-    for sub in ["LocalServer32", "InProcServer32", "InProcHandler32"] {
-        if subkey.open_subkey(sub).is_ok() {
-            return false;
-        }
+    let has_server_subkey = ["LocalServer32", "InProcServer32", "InProcHandler32"]
+        .iter()
+        .any(|sub| subkey.open_subkey(sub).is_ok());
+    if has_server_subkey {
+        return false;
     }
 
     // bat line 566-569: if key has no subkeys with "H" → match
     let sub_names: Vec<String> = subkey.enum_keys().filter_map(|r| r.ok()).collect();
     let has_h_subkey = sub_names.iter().any(|s| s.contains('H') || s.contains('h'));
     if sub_names.is_empty() && subkey.enum_values().count() == 0 {
-        // Empty key with no values and no subkeys
         return true;
     }
     if !has_h_subkey && !sub_names.is_empty() {
-        // Has subkeys but none contain "H"
         return true;
     }
 
@@ -334,18 +339,13 @@ fn is_idm_clsid_key(parent: &RegKey, name: &str) -> bool {
 
     // bat line 581-584: subkey names contain MData, Model, scansk, or Therad → match
     let patterns = ["mdata", "model", "scansk", "therad"];
-    for sub_name in &sub_names {
+    sub_names.iter().any(|sub_name| {
         let lower = sub_name.to_lowercase();
-        if patterns.iter().any(|p| lower.contains(p)) {
-            return true;
-        }
-    }
-
-    false
+        patterns.iter().any(|p| lower.contains(p))
+    })
 }
 
 /// Take ownership, reset ACL, and delete a registry key via PowerShell.
-/// Mirrors the bat :reg_own logic (lines 648-660).
 fn take_ownership_and_delete(reg_path: &str) {
     let ps_script = format!(
         r#"

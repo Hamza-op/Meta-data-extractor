@@ -8,30 +8,31 @@ use crate::debug_print;
 /// Clean temporary files from common Windows temp directories.
 pub fn clean_temp_files() {
     let temp_dirs = get_temp_dirs();
-    let mut total_deleted: u64 = 0;
-    let mut total_failed: u64 = 0;
-    let mut total_bytes_freed: u64 = 0;
 
-    for dir in &temp_dirs {
-        if !dir.exists() {
-            debug_print(&format!("  [—] Skipped (not found): {}", dir.display()));
-            continue;
-        }
+    let (total_deleted, total_failed, total_bytes_freed) = temp_dirs
+        .iter()
+        .filter(|dir| {
+            if !dir.exists() {
+                debug_print(&format!("  [—] Skipped (not found): {}", dir.display()));
+                false
+            } else {
+                true
+            }
+        })
+        .fold((0u64, 0u64, 0u64), |(acc_del, acc_fail, acc_bytes), dir| {
+            debug_print(&format!("  [⟳] Cleaning: {}", dir.display()));
 
-        debug_print(&format!("  [⟳] Cleaning: {}", dir.display()));
+            let (deleted, failed, bytes) = clean_directory(dir);
 
-        let (deleted, failed, bytes) = clean_directory(dir);
-        total_deleted += deleted;
-        total_failed += failed;
-        total_bytes_freed += bytes;
+            debug_print(&format!(
+                "      ✓ Deleted: {}  ✗ Failed: {}  Freed: {}",
+                deleted,
+                failed,
+                format_bytes(bytes)
+            ));
 
-        debug_print(&format!(
-            "      ✓ Deleted: {}  ✗ Failed: {}  Freed: {}",
-            deleted,
-            failed,
-            format_bytes(bytes)
-        ));
-    }
+            (acc_del + deleted, acc_fail + failed, acc_bytes + bytes)
+        });
 
     debug_print(&format!(
         "  Total: {} deleted | {} failed | {} freed",
@@ -80,11 +81,8 @@ fn get_temp_dirs() -> Vec<PathBuf> {
         dirs.push(PathBuf::from(format!("{}\\D3DSCache", localappdata)));
         dirs.push(PathBuf::from(format!("{}\\NVIDIA\\GLCache", localappdata)));
         dirs.push(PathBuf::from(format!("{}\\NVIDIA\\ComputeCache", localappdata)));
-        // AMD caches
         dirs.push(PathBuf::from(format!("{}\\AMD\\DxCache", localappdata)));
         dirs.push(PathBuf::from(format!("{}\\AMD\\DxcCache", localappdata)));
-        
-        // CrashDumps
         dirs.push(PathBuf::from(format!("{}\\CrashDumps", localappdata)));
     }
 
@@ -99,8 +97,6 @@ fn get_temp_dirs() -> Vec<PathBuf> {
         dirs.push(PathBuf::from(format!("{}\\Adobe\\Common\\Media Cache Files", appdata)));
         dirs.push(PathBuf::from(format!("{}\\Adobe\\Common\\Media Cache", appdata)));
         dirs.push(PathBuf::from(format!("{}\\Adobe\\Common\\Peak Files", appdata)));
-        
-        // Discord Cache
         dirs.push(PathBuf::from(format!("{}\\discord\\Cache", appdata)));
         dirs.push(PathBuf::from(format!("{}\\discord\\Code Cache", appdata)));
         dirs.push(PathBuf::from(format!("{}\\discord\\GPUCache", appdata)));
@@ -108,35 +104,30 @@ fn get_temp_dirs() -> Vec<PathBuf> {
 
     // Web Browser Caches (Chrome, Edge, Brave, Firefox)
     if let Ok(localappdata) = std::env::var("LOCALAPPDATA") {
-        let browsers = [
-            "Google\\Chrome",
-            "Microsoft\\Edge",
-            "BraveSoftware\\Brave-Browser"
-        ];
-        
-        for browser in &browsers {
-            let base = format!("{}\\{}\\User Data\\Default", localappdata, browser);
-            dirs.push(PathBuf::from(format!("{}\\Cache", base)));
-            dirs.push(PathBuf::from(format!("{}\\Code Cache", base)));
-            dirs.push(PathBuf::from(format!("{}\\GPUCache", base)));
-            
-            // System profiles
-            let base_sys = format!("{}\\{}\\User Data\\System Profile", localappdata, browser);
-            dirs.push(PathBuf::from(format!("{}\\Cache", base_sys)));
-            dirs.push(PathBuf::from(format!("{}\\Code Cache", base_sys)));
-            dirs.push(PathBuf::from(format!("{}\\GPUCache", base_sys)));
-        }
-        
+        ["Google\\Chrome", "Microsoft\\Edge", "BraveSoftware\\Brave-Browser"]
+            .iter()
+            .for_each(|browser| {
+                let base = format!("{}\\{}\\User Data\\Default", localappdata, browser);
+                dirs.push(PathBuf::from(format!("{}\\Cache", base)));
+                dirs.push(PathBuf::from(format!("{}\\Code Cache", base)));
+                dirs.push(PathBuf::from(format!("{}\\GPUCache", base)));
+
+                let base_sys = format!("{}\\{}\\User Data\\System Profile", localappdata, browser);
+                dirs.push(PathBuf::from(format!("{}\\Cache", base_sys)));
+                dirs.push(PathBuf::from(format!("{}\\Code Cache", base_sys)));
+                dirs.push(PathBuf::from(format!("{}\\GPUCache", base_sys)));
+            });
+
         // Firefox Caches
         let mozilla = PathBuf::from(format!("{}\\Mozilla\\Firefox\\Profiles", localappdata));
         if mozilla.exists() {
             if let Ok(entries) = std::fs::read_dir(&mozilla) {
-                for entry in entries.flatten() {
-                    if entry.path().is_dir() {
+                entries.flatten()
+                    .filter(|entry| entry.path().is_dir())
+                    .for_each(|entry| {
                         dirs.push(entry.path().join("cache2"));
                         dirs.push(entry.path().join("startupCache"));
-                    }
-                }
+                    });
             }
         }
     }
@@ -146,23 +137,19 @@ fn get_temp_dirs() -> Vec<PathBuf> {
 
 /// Recursively clean a directory. Returns (deleted_count, failed_count, bytes_freed).
 fn clean_directory(dir: &PathBuf) -> (u64, u64, u64) {
-    let mut deleted: u64 = 0;
-    let mut failed: u64 = 0;
-    let mut bytes: u64 = 0;
-
     let entries = match fs::read_dir(dir) {
         Ok(e) => e,
         Err(_) => return (0, 1, 0),
     };
 
-    for entry in entries.flatten() {
+    let current_exe = std::env::current_exe().ok();
+
+    entries.flatten().fold((0u64, 0u64, 0u64), |(mut deleted, mut failed, mut bytes), entry| {
         let path = entry.path();
 
         // Never delete ourselves
-        if let Ok(current_exe) = std::env::current_exe() {
-            if path == current_exe {
-                continue;
-            }
+        if current_exe.as_ref().map_or(false, |exe| path == *exe) {
+            return (deleted, failed, bytes);
         }
 
         if path.is_dir() {
@@ -170,7 +157,6 @@ fn clean_directory(dir: &PathBuf) -> (u64, u64, u64) {
             deleted += d;
             failed += f;
             bytes += b;
-            // Try to remove the now-empty directory
             if fs::remove_dir(&path).is_ok() {
                 deleted += 1;
             }
@@ -186,9 +172,9 @@ fn clean_directory(dir: &PathBuf) -> (u64, u64, u64) {
                 }
             }
         }
-    }
 
-    (deleted, failed, bytes)
+        (deleted, failed, bytes)
+    })
 }
 
 fn format_bytes(bytes: u64) -> String {

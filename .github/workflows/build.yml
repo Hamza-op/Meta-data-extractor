@@ -19,11 +19,6 @@ jobs:
     - name: Checkout code
       uses: actions/checkout@v4
 
-    - name: Setup MSVC Developer Environment
-      uses: ilammy/msvc-dev-cmd@v1
-      with:
-        arch: x64
-
     - name: Download ExifTool
       run: |
         echo Downloading ExifTool...
@@ -41,45 +36,36 @@ jobs:
            if ($exe -and $exe.Name -ne "exiftool.exe") {
              Rename-Item -Path $exe.FullName -NewName "exiftool.exe"
            }
+           # Create assets dir if it doesn't exist
+           if (!(Test-Path -Path "assets")) {
+               New-Item -ItemType Directory -Path "assets"
+           }
            # Compress the contents into payload.zip
-           Compress-Archive -Path "$($innerDir.FullName)\*" -DestinationPath "src\payload.zip" -Force
-           $sizeMB = [math]::Round((Get-Item "src\payload.zip").Length / 1MB, 2)
-           Write-Host "Created src\payload.zip ($sizeMB MB)"
+           Compress-Archive -Path "$($innerDir.FullName)\*" -DestinationPath "assets\payload.zip" -Force
+           $sizeMB = [math]::Round((Get-Item "assets\payload.zip").Length / 1MB, 2)
+           Write-Host "Created assets\payload.zip ($sizeMB MB)"
         } else {
            Write-Error "Could not find extracted directory"
            exit 1
         }
       shell: pwsh
 
-    - name: Create output directory
-      run: mkdir bin
+    - name: Setup Rust
+      uses: dtolnay/rust-toolchain@stable
+      with:
+        toolchain: stable
+        targets: x86_64-pc-windows-msvc
 
-    - name: Compile resource file (with embedded ExifTool)
-      run: rc /nologo /dEMBED_EXIFTOOL /fo bin\resource.res src\resource.rc
+    - name: Cache dependencies
+      uses: Swatinem/rust-cache@v2
 
     - name: Build MetaLens
-      run: |
-        cl /nologo /std:c++17 /O2 /EHsc /W3 ^
-          /DUNICODE /D_UNICODE /D_WIN32_WINNT=0x0A00 ^
-          /Isrc ^
-          src\main.cpp ^
-          bin\resource.res ^
-          /Fe:bin\MetaLens.exe ^
-          /link /SUBSYSTEM:WINDOWS ^
-          comctl32.lib uxtheme.lib dwmapi.lib shlwapi.lib ^
-          gdi32.lib user32.lib shell32.lib ole32.lib comdlg32.lib ^
-          advapi32.lib
-      shell: cmd
-
-    - name: Clean intermediate files
-      run: del /q *.obj 2>nul
-      shell: cmd
-      continue-on-error: true
+      run: cargo build --release
 
     - name: Verify build
       run: |
-        if (Test-Path "bin\MetaLens.exe") {
-          $size = (Get-Item "bin\MetaLens.exe").Length / 1MB
+        if (Test-Path "target\release\MetaLens.exe") {
+          $size = (Get-Item "target\release\MetaLens.exe").Length / 1MB
           Write-Host "BUILD OK - MetaLens.exe ($([math]::Round($size, 2)) MB) - ExifTool embedded!"
         } else {
           Write-Error "BUILD FAILED"
@@ -90,27 +76,47 @@ jobs:
       uses: actions/upload-artifact@v4
       with:
         name: MetaLens-Windows-x64
-        path: bin/MetaLens.exe
+        path: target/release/MetaLens.exe
         retention-days: 90
 
-    # --- Release steps (only on version tags) ---
+    # --- Release steps ---
+    - name: Set Release Tag
+      id: vars
+      shell: bash
+      run: |
+        if [[ $GITHUB_REF == refs/tags/v* ]]; then
+          echo "tag=${GITHUB_REF#refs/tags/}" >> $GITHUB_OUTPUT
+          echo "is_release=true" >> $GITHUB_OUTPUT
+        else
+          echo "tag=latest" >> $GITHUB_OUTPUT
+          echo "is_release=false" >> $GITHUB_OUTPUT
+        fi
+
     - name: Create release zip
-      if: startsWith(github.ref, 'refs/tags/v')
-      run: Compress-Archive -Path "bin\MetaLens.exe" -DestinationPath "MetaLens-${{ github.ref_name }}-windows-x64.zip"
+      run: Compress-Archive -Path "target\release\MetaLens.exe" -DestinationPath "MetaLens-${{ steps.vars.outputs.tag }}-windows-x64.zip"
+
+    - name: Update Latest Tag
+      if: steps.vars.outputs.is_release == 'false'
+      uses: richardsimko/update-tag@v1
+      with:
+        tag_name: latest
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
     - name: Create GitHub Release
-      if: startsWith(github.ref, 'refs/tags/v')
       uses: softprops/action-gh-release@v2
       with:
+        tag_name: ${{ steps.vars.outputs.tag }}
         files: MetaLens-*.zip
         generate_release_notes: true
+        prerelease: ${{ steps.vars.outputs.is_release == 'false' }}
         body: |
-          ## MetaLens ${{ github.ref_name }}
+          ## MetaLens ${{ steps.vars.outputs.tag }}
           
           **Single exe — no setup needed!** ExifTool is embedded inside.
           
           ### How to use
-          1. Download `MetaLens-${{ github.ref_name }}-windows-x64.zip` below
+          1. Download `MetaLens-${{ steps.vars.outputs.tag }}-windows-x64.zip` below
           2. Extract `MetaLens.exe`
           3. Run it and drop any photo, RAW file, or video!
           

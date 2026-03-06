@@ -19,36 +19,10 @@ jobs:
     - name: Checkout code
       uses: actions/checkout@v4
 
-    - name: Download ExifTool
-      run: |
-        echo Downloading ExifTool...
-        curl.exe -L -o exiftool.zip "https://sourceforge.net/projects/exiftool/files/exiftool-13.51_64.zip/download" || curl.exe -L -o exiftool.zip "https://sourceforge.net/projects/exiftool/files/exiftool-13.50_64.zip/download"
-      shell: cmd
-
-    - name: Create Payload Zip
-      run: |
-        Expand-Archive -Path "exiftool.zip" -DestinationPath "exiftool_tmp" -Force
-        # Find the inner directory e.g., exiftool-13.51_64
-        $innerDir = Get-ChildItem -Path "exiftool_tmp" -Directory | Select-Object -First 1
-        if ($innerDir) {
-           # Rename exiftool(-k).exe to exiftool.exe
-           $exe = Get-ChildItem -Path $innerDir.FullName -Filter "*.exe" | Select-Object -First 1
-           if ($exe -and $exe.Name -ne "exiftool.exe") {
-             Rename-Item -Path $exe.FullName -NewName "exiftool.exe"
-           }
-           # Create assets dir if it doesn't exist
-           if (!(Test-Path -Path "assets")) {
-               New-Item -ItemType Directory -Path "assets"
-           }
-           # Compress the contents into payload.zip
-           Compress-Archive -Path "$($innerDir.FullName)\*" -DestinationPath "assets\payload.zip" -Force
-           $sizeMB = [math]::Round((Get-Item "assets\payload.zip").Length / 1MB, 2)
-           Write-Host "Created assets\payload.zip ($sizeMB MB)"
-        } else {
-           Write-Error "Could not find extracted directory"
-           exit 1
-        }
+    - name: Ensure assets directory exists
+      run: if (!(Test-Path -Path "assets")) { New-Item -ItemType Directory -Path "assets" }
       shell: pwsh
+
 
     - name: Setup Rust
       uses: dtolnay/rust-toolchain@stable

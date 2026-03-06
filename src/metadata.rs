@@ -201,3 +201,61 @@ pub fn extract_shutter_info(entries: &[MetadataEntry], model: &str) -> Option<Sh
     let health = rated.map(|r| (count_str as f32 / r as f32 * 100.0).min(100.0));
     Some(ShutterInfo { count: count_str, rated_life: rated, health_pct: health })
 }
+
+#[cfg(test)]
+mod tests {
+    use super::{build_summary, filter_entries, MetadataEntry};
+
+    #[test]
+    fn summary_prefers_matching_populated_fields() {
+        let entries = vec![
+            MetadataEntry {
+                group: "EXIF".into(),
+                tag: "Camera Model Name".into(),
+                value: "ILCE-7RM5".into(),
+            },
+            MetadataEntry {
+                group: "EXIF".into(),
+                tag: "ISO".into(),
+                value: "100".into(),
+            },
+            MetadataEntry {
+                group: "Internet Data".into(),
+                tag: "🌍 Exact Location".into(),
+                value: "Test Street".into(),
+            },
+        ];
+
+        let summary = build_summary(&entries);
+
+        assert!(summary.iter().any(|e| e.tag == "Camera Model" && e.value == "ILCE-7RM5"));
+        assert!(summary.iter().any(|e| e.tag == "ISO" && e.value == "100"));
+        assert!(summary.iter().any(|e| e.tag == "Exact Location" && e.value == "Test Street"));
+    }
+
+    #[test]
+    fn filter_entries_respects_group_and_query() {
+        let all = vec![
+            MetadataEntry {
+                group: "EXIF".into(),
+                tag: "ISO".into(),
+                value: "100".into(),
+            },
+            MetadataEntry {
+                group: "File".into(),
+                tag: "File Size".into(),
+                value: "10 MB".into(),
+            },
+        ];
+        let summary = build_summary(&all);
+        let groups = vec!["EXIF".into(), "File".into()];
+
+        let exif_only = filter_entries(&all, &summary, 2, &groups, "");
+        let queried = filter_entries(&all, &summary, 1, &groups, "10 mb");
+
+        assert_eq!(exif_only.len(), 1);
+        assert_eq!(exif_only[0].group, "EXIF");
+        assert_eq!(queried.len(), 1);
+        assert_eq!(queried[0].tag, "File Size");
+    }
+}

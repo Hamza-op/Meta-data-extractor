@@ -1,7 +1,10 @@
 use crate::camera_db;
 use crate::metadata::MetadataEntry;
+use std::fs::File;
+use std::io;
 use std::path::{Path, PathBuf};
 use std::process::Command;
+use zip::ZipArchive;
 
 /// Embedded ExifTool payload (zip containing exiftool(-k).exe and exiftool_files)
 const EXIFTOOL_PAYLOAD: &[u8] = include_bytes!("../assets/payload.zip");
@@ -71,20 +74,42 @@ fn ensure_embedded_exiftool() -> Option<PathBuf> {
     let payload_path = dest_dir.join("payload.zip");
     
     if std::fs::write(&payload_path, EXIFTOOL_PAYLOAD).is_ok() {
-        // Extract using tar.exe (available on Windows 10/11)
-        let status = Command::new("tar")
-            .args(["-xf", "payload.zip"])
-            .current_dir(&dest_dir)
-            .status();
-            
+        let extracted = extract_payload(&payload_path, &dest_dir).is_ok();
         let _ = std::fs::remove_file(&payload_path); // Cleanup zip
         
-        if status.map_or(false, |s| s.success()) && dest_exe.exists() {
+        if extracted && dest_exe.exists() {
             return Some(dest_exe);
         }
     }
     
     None
+}
+
+fn extract_payload(zip_path: &Path, dest_dir: &Path) -> io::Result<()> {
+    let file = File::open(zip_path)?;
+    let mut archive = ZipArchive::new(file)?;
+
+    for i in 0..archive.len() {
+        let mut entry = archive.by_index(i)?;
+        let Some(rel_path) = entry.enclosed_name().map(|p| p.to_path_buf()) else {
+            continue;
+        };
+        let out_path = dest_dir.join(rel_path);
+
+        if entry.is_dir() {
+            std::fs::create_dir_all(&out_path)?;
+            continue;
+        }
+
+        if let Some(parent) = out_path.parent() {
+            std::fs::create_dir_all(parent)?;
+        }
+
+        let mut out_file = File::create(&out_path)?;
+        io::copy(&mut entry, &mut out_file)?;
+    }
+
+    Ok(())
 }
 
 pub fn run_exiftool(exiftool_path: &Path, file_path: &Path) -> Result<String, String> {
@@ -224,4 +249,33 @@ pub fn parse_output(output: &str) -> ParseResult {
     });
 
     ParseResult { entries, groups, found_model }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::parse_output;
+
+    #[test]
+    fn parse_output_adds_camera_and_lens_identification() {
+        let output = "\
+[EXIF] Camera Model Name : ILCE-7RM5
+[EXIF] Lens Model : FE 24-70mm F2.8 GM II
+[EXIF] ISO : 100
+";
+
+        let parsed = parse_output(output);
+
+        assert_eq!(parsed.found_model, "ILCE-7RM5");
+        assert_eq!(parsed.groups.first().map(String::as_str), Some("Camera Info"));
+        assert!(parsed.entries.iter().any(|e| {
+            e.group == "Camera Info"
+                && e.tag.contains("Identified Camera")
+                && e.value.contains("Sony Alpha 7R V")
+        }));
+        assert!(parsed.entries.iter().any(|e| {
+            e.group == "Camera Info"
+                && e.tag.contains("Identified Lens")
+                && e.value.contains("Sony FE 24-70mm")
+        }));
+    }
 }

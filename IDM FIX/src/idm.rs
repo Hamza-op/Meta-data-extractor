@@ -1,7 +1,6 @@
 //! IDM (Internet Download Manager) registry operations.
 //! Full port of the IDM activation.bat reset logic.
 
-use std::process::Command;
 use winreg::enums::*;
 use winreg::RegKey;
 
@@ -29,7 +28,7 @@ fn get_clsid_paths() -> Vec<&'static str> {
     } else {
         vec![
             r"Software\Classes\CLSID",
-            r"Software\Classes\Wow6432Node\CLSID"
+            r"Software\Classes\Wow6432Node\CLSID",
         ]
     }
 }
@@ -68,7 +67,10 @@ pub fn reset_activation() {
     debug_print("  [⟳] Scanning and deleting CLSID tracking keys...");
     delete_clsid_keys(true); // true = take_permission on failure
 
-    // Step 5: Re-add the AdvIntDriverEnabled2 key (bat :add_key, lines 518-538)
+    // Step 5: Clean and lockdown IDM hidden folders in INetCache
+    clean_and_lock_inetcache_idm();
+
+    // Step 6: Re-add the AdvIntDriverEnabled2 key (bat :add_key, lines 518-538)
     debug_print("  [⟳] Adding driver registry key...");
     add_driver_key();
 
@@ -101,22 +103,30 @@ pub fn fix_popup() {
 fn disable_idm_helper() {
     let hkcu = RegKey::predef(HKEY_CURRENT_USER);
     let idm_path = match hkcu.open_subkey(r"Software\DownloadManager") {
-        Ok(key) => key.get_value::<String, _>("ExePath").map(|p| {
-            std::path::Path::new(&p).parent().unwrap_or_else(|| std::path::Path::new("")).to_path_buf()
-        }).unwrap_or_default(),
+        Ok(key) => key
+            .get_value::<String, _>("ExePath")
+            .map(|p| {
+                std::path::Path::new(&p)
+                    .parent()
+                    .unwrap_or_else(|| std::path::Path::new(""))
+                    .to_path_buf()
+            })
+            .unwrap_or_default(),
         Err(_) => return,
     };
 
-    if idm_path.as_os_str().is_empty() { return; }
+    if idm_path.as_os_str().is_empty() {
+        return;
+    }
 
     let helper_path = idm_path.join("IDMGrHlp.exe");
     if helper_path.exists() {
         debug_print("  [⟳] Disabling IDMGrHlp.exe...");
-        
+
         kill_idm();
 
         let backup_path = idm_path.join("IDMGrHlp.exe.bak");
-        
+
         if !backup_path.exists() {
             if let Err(e) = std::fs::rename(&helper_path, &backup_path) {
                 debug_print(&format!("  [✗] Failed to rename helper: {}", e));
@@ -137,7 +147,7 @@ fn disable_idm_helper() {
 // ─────────────────────────────────────────────────────────────
 
 fn kill_idm() {
-    let output = Command::new("tasklist")
+    let output = crate::hidden_command("tasklist")
         .args(["/fi", "imagename eq idman.exe"])
         .output();
 
@@ -151,7 +161,7 @@ fn kill_idm() {
 
     if is_running {
         debug_print("  [i] IDM is running, terminating...");
-        let _ = Command::new("taskkill")
+        let _ = crate::hidden_command("taskkill")
             .args(["/f", "/im", "idman.exe"])
             .output();
         std::thread::sleep(std::time::Duration::from_millis(500));
@@ -176,14 +186,28 @@ fn delete_queue() {
     let hkcu = RegKey::predef(HKEY_CURRENT_USER);
 
     if let Ok(key) = hkcu.open_subkey_with_flags(r"Software\DownloadManager", KEY_ALL_ACCESS) {
-        ["FName", "LName", "Email", "Serial", "scansk", "tvfrdt", "radxcnt", "LstCheck", "ptrk_scdt", "LastCheckQU"]
-            .iter()
-            .for_each(|val| {
-                match key.delete_value(val) {
-                    Ok(_) => debug_print(&format!("    Deleted — HKCU\\Software\\DownloadManager\\{}", val)),
-                    Err(_) => {} // value didn't exist — fine
-                }
-            });
+        [
+            "FName",
+            "LName",
+            "Email",
+            "Serial",
+            "scansk",
+            "tvfrdt",
+            "radxcnt",
+            "LstCheck",
+            "ptrk_scdt",
+            "LastCheckQU",
+        ]
+        .iter()
+        .for_each(|val| {
+            match key.delete_value(val) {
+                Ok(_) => debug_print(&format!(
+                    "    Deleted — HKCU\\Software\\DownloadManager\\{}",
+                    val
+                )),
+                Err(_) => {} // value didn't exist — fine
+            }
+        });
     }
 
     // Delete HKLM IDM key (bat line 509)
@@ -201,7 +225,8 @@ fn delete_queue() {
         Err(_) => {}
     }
 
-    let vs_wow6432 = r"Software\Classes\VirtualStore\MACHINE\SOFTWARE\Wow6432Node\Internet Download Manager";
+    let vs_wow6432 =
+        r"Software\Classes\VirtualStore\MACHINE\SOFTWARE\Wow6432Node\Internet Download Manager";
     match hkcu.delete_subkey_all(vs_wow6432) {
         Ok(_) => debug_print(&format!("    Deleted — HKCU\\{}", vs_wow6432)),
         Err(_) => {}
@@ -214,15 +239,16 @@ fn add_driver_key() {
     let hklm = RegKey::predef(HKEY_LOCAL_MACHINE);
 
     match hklm.create_subkey(&hklm_path) {
-        Ok((key, _)) => {
-            match key.set_value("AdvIntDriverEnabled2", &1u32) {
-                Ok(_) => debug_print(&format!(
-                    "    Added — HKLM\\{}\\AdvIntDriverEnabled2 = 1",
-                    hklm_path
-                )),
-                Err(e) => debug_print(&format!("    [✗] Failed to set AdvIntDriverEnabled2: {}", e)),
-            }
-        }
+        Ok((key, _)) => match key.set_value("AdvIntDriverEnabled2", &1u32) {
+            Ok(_) => debug_print(&format!(
+                "    Added — HKLM\\{}\\AdvIntDriverEnabled2 = 1",
+                hklm_path
+            )),
+            Err(e) => debug_print(&format!(
+                "    [✗] Failed to set AdvIntDriverEnabled2: {}",
+                e
+            )),
+        },
         Err(e) => debug_print(&format!("    [✗] Failed to create {}: {}", hklm_path, e)),
     }
 }
@@ -257,18 +283,25 @@ fn delete_clsid_keys(take_permission: bool) {
             return;
         }
 
-        debug_print(&format!("    [i] Found {} IDM tracking key(s).", keys_to_delete.len()));
+        debug_print(&format!(
+            "    [i] Found {} IDM tracking key(s).",
+            keys_to_delete.len()
+        ));
 
         let clsid_write = match hkcu.open_subkey_with_flags(clsid_path, KEY_ALL_ACCESS) {
             Ok(k) => k,
             Err(e) => {
-                debug_print(&format!("    [✗] Cannot open CLSID with write access: {}", e));
+                debug_print(&format!(
+                    "    [✗] Cannot open CLSID with write access: {}",
+                    e
+                ));
                 return;
             }
         };
 
-        keys_to_delete.iter().for_each(|key_name| {
-            match clsid_write.delete_subkey_all(key_name) {
+        keys_to_delete
+            .iter()
+            .for_each(|key_name| match clsid_write.delete_subkey_all(key_name) {
                 Ok(_) => {
                     debug_print(&format!("    Deleted — {}", key_name));
                 }
@@ -280,8 +313,7 @@ fn delete_clsid_keys(take_permission: bool) {
                 Err(_) => {
                     debug_print(&format!("    [✗] Failed — {}", key_name));
                 }
-            }
-        });
+            });
     });
 }
 
@@ -383,7 +415,7 @@ try {{
         path = reg_path
     );
 
-    let output = Command::new("powershell")
+    let output = crate::hidden_command("powershell")
         .args(["-NoProfile", "-NonInteractive", "-Command", &ps_script])
         .output();
 
@@ -393,10 +425,76 @@ try {{
         }
         Ok(o) => {
             let stderr = String::from_utf8_lossy(&o.stderr);
-            debug_print(&format!("    [✗] Failed — {} : {}", reg_path, stderr.trim()));
+            debug_print(&format!(
+                "    [✗] Failed — {} : {}",
+                reg_path,
+                stderr.trim()
+            ));
         }
         Err(e) => {
             debug_print(&format!("    [✗] PowerShell error — {}: {}", reg_path, e));
         }
     }
+}
+
+// ─────────────────────────────────────────────────────────────
+//  INetCache IDM Hidden Files Lockdown
+// ─────────────────────────────────────────────────────────────
+
+fn clean_and_lock_inetcache_idm() {
+    let localappdata = match std::env::var("LOCALAPPDATA") {
+        Ok(v) => v,
+        Err(_) => return,
+    };
+    
+    let inetcache = std::path::PathBuf::from(localappdata).join(r"Microsoft\Windows\INetCache");
+    if !inetcache.exists() { return; }
+
+    debug_print("  [⟳] Scanning and wiping INetCache...");
+
+    if let Ok(entries) = std::fs::read_dir(&inetcache) {
+        for entry in entries.flatten() {
+            let path = entry.path();
+            let name = path.file_name().unwrap_or_default().to_string_lossy().to_lowercase();
+            
+            // Skip desktop.ini to maintain basic Windows folder aesthetics if present
+            if name == "desktop.ini" {
+                continue;
+            }
+
+            if path.is_dir() {
+                take_ownership_and_delete_fs(&path);
+                
+                // Recreate it as an empty folder and lock it down
+                let _ = std::fs::create_dir_all(&path);
+                lockdown_folder(&path);
+                debug_print(&format!("    [✓] Wiped and locked down folder: {}", name));
+            } else {
+                let _ = std::fs::remove_file(&path);
+            }
+        }
+    }
+}
+
+fn take_ownership_and_delete_fs(path: &std::path::Path) {
+    let path_str = path.to_string_lossy();
+    
+    let _ = crate::hidden_command("takeown")
+        .args(["/F", &path_str, "/R", "/D", "Y"])
+        .output();
+        
+    let _ = crate::hidden_command("icacls")
+        .args([&path_str, "/grant", "administrators:F", "/T", "/C", "/Q"])
+        .output();
+        
+    let _ = crate::hidden_command("cmd")
+        .args(["/c", "rmdir", "/s", "/q", &path_str])
+        .output();
+}
+
+fn lockdown_folder(path: &std::path::Path) {
+    let path_str = path.to_string_lossy();
+    let _ = crate::hidden_command("icacls")
+        .args([&path_str, "/deny", "Everyone:(OI)(CI)(W)", "/Q"])
+        .output();
 }

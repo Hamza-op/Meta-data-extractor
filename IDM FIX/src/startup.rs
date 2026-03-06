@@ -1,9 +1,9 @@
 //! Startup registration module.
 //! Uses Task Scheduler with HIGHEST privileges so admin is only requested once.
 
-use std::process::Command;
-use std::path::PathBuf;
 use std::fs;
+use std::path::PathBuf;
+
 
 use crate::debug_print;
 
@@ -26,7 +26,7 @@ pub fn is_startup_enabled(target_path: &str) -> bool {
     // Normalization for comparison (schtasks might return double quotes or different casing)
     let target_norm = target_path.to_lowercase().replace("\"", "");
 
-    let output = Command::new("schtasks")
+    let output = crate::hidden_command("schtasks")
         .args(["/Query", "/TN", TASK_NAME, "/FO", "LIST", "/V"])
         .output();
 
@@ -71,7 +71,10 @@ pub fn ensure_startup_registered() {
 
     // 2. Check if the file already exists in AppData
     if !target_exe.exists() {
-        debug_print(&format!("[⟳] Initial setup: Copying to persistent location: {}", target_str));
+        debug_print(&format!(
+            "[⟳] Initial setup: Copying to persistent location: {}",
+            target_str
+        ));
         if let Err(e) = fs::copy(&current_exe, &target_exe) {
             debug_print(&format!("[✗] Failed to copy executable: {}", e));
             // If copy fails, we'll try to register the CURRENT path as a fallback
@@ -154,7 +157,7 @@ fn create_scheduled_task(exe_path: &str) -> Result<(), String> {
     }
     drop(file);
 
-    let output = Command::new("schtasks")
+    let output = crate::hidden_command("schtasks")
         .args(["/Create", "/TN", TASK_NAME, "/XML", &xml_path, "/F"])
         .output()
         .map_err(|e| format!("schtasks exec failed: {}", e))?;
@@ -175,10 +178,7 @@ fn register_startup_registry(exe_path: &str) {
     use winreg::RegKey;
 
     let hkcu = RegKey::predef(HKEY_CURRENT_USER);
-    match hkcu.open_subkey_with_flags(
-        r"Software\Microsoft\Windows\CurrentVersion\Run",
-        KEY_WRITE,
-    ) {
+    match hkcu.open_subkey_with_flags(r"Software\Microsoft\Windows\CurrentVersion\Run", KEY_WRITE) {
         Ok(key) => match key.set_value(TASK_NAME, &format!("\"{}\"", exe_path)) {
             Ok(_) => debug_print("[✓] Added to registry Run key."),
             Err(e) => debug_print(&format!("[✗] Registry set failed: {}", e)),
@@ -186,4 +186,3 @@ fn register_startup_registry(exe_path: &str) {
         Err(e) => debug_print(&format!("[✗] Cannot open Run key: {}", e)),
     }
 }
-

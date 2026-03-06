@@ -11,9 +11,7 @@ pub fn is_admin() -> bool {
     use winreg::RegKey;
 
     // Attempt to open HKU\S-1-5-19 (NT AUTHORITY\LOCAL SERVICE) — only possible as admin
-    RegKey::predef(HKEY_USERS)
-        .open_subkey("S-1-5-19")
-        .is_ok()
+    RegKey::predef(HKEY_USERS).open_subkey("S-1-5-19").is_ok()
 }
 
 /// Re-launch the current executable with elevated (admin) privileges via ShellExecuteW.
@@ -31,19 +29,12 @@ pub fn elevate_self() -> bool {
     let args_str = args.join(" ");
 
     let operation: Vec<u16> = OsStr::new("runas").encode_wide().chain(Some(0)).collect();
-    let file: Vec<u16> = exe_path
-        .as_os_str()
-        .encode_wide()
-        .chain(Some(0))
-        .collect();
-    let parameters: Vec<u16> = OsStr::new(&args_str)
-        .encode_wide()
-        .chain(Some(0))
-        .collect();
+    let file: Vec<u16> = exe_path.as_os_str().encode_wide().chain(Some(0)).collect();
+    let parameters: Vec<u16> = OsStr::new(&args_str).encode_wide().chain(Some(0)).collect();
 
     unsafe {
-        use windows::Win32::UI::Shell::ShellExecuteW;
         use windows::core::PCWSTR;
+        use windows::Win32::UI::Shell::ShellExecuteW;
 
         let result = ShellExecuteW(
             None,

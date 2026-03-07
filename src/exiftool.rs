@@ -4,6 +4,8 @@ use std::fs::File;
 use std::io;
 use std::path::{Path, PathBuf};
 use std::process::Command;
+#[cfg(windows)]
+use std::os::windows::process::CommandExt;
 use zip::ZipArchive;
 
 /// Embedded ExifTool payload (zip containing exiftool(-k).exe and exiftool_files)
@@ -30,7 +32,12 @@ pub fn find_exiftool() -> Option<PathBuf> {
     }
 
     // 3. Check PATH via `where`
-    if let Ok(out) = Command::new("where").arg("exiftool.exe").output() {
+    let mut cmd = Command::new("where");
+    cmd.arg("exiftool.exe");
+    #[cfg(windows)]
+    cmd.creation_flags(0x08000000);
+    
+    if let Ok(out) = cmd.output() {
         if out.status.success() {
             let s = String::from_utf8_lossy(&out.stdout);
             if let Some(line) = s.lines().next() {
@@ -113,10 +120,13 @@ fn extract_payload(zip_path: &Path, dest_dir: &Path) -> io::Result<()> {
 }
 
 pub fn run_exiftool(exiftool_path: &Path, file_path: &Path) -> Result<String, String> {
-    let output = Command::new(exiftool_path)
-        .args(["-All", "-G:1", "-a", "-u", "-f", "-E", "-c", "%+.6f"])
-        .arg(file_path)
-        .output()
+    let mut cmd = Command::new(exiftool_path);
+    cmd.args(["-All", "-G:1", "-a", "-u", "-f", "-E", "-c", "%+.6f"]);
+    cmd.arg(file_path);
+    #[cfg(windows)]
+    cmd.creation_flags(0x08000000);
+    
+    let output = cmd.output()
         .map_err(|e| format!("Failed to launch ExifTool: {}", e))?;
 
     if !output.status.success() && output.stdout.is_empty() {

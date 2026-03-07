@@ -29,14 +29,15 @@ pub struct MetaLensApp {
     rx: Option<mpsc::Receiver<LoadResult>>,
     anim_time: f64,
     status_msg: String,
+    pending_file: Option<String>,
+    logo_texture: Option<egui::TextureHandle>,
+    tab_scroll_offset: f32,
 }
 
 impl MetaLensApp {
-    pub fn new(cc: &eframe::CreationContext) -> Self {
+    pub fn new(cc: &eframe::CreationContext, initial_file: Option<String>) -> Self {
         let ctx = &cc.egui_ctx;
         ctx.set_visuals(egui::Visuals::dark());
-
-        // Use egui's built-in fonts (clean and modern)
 
         Self {
             exiftool_path: exiftool::find_exiftool(),
@@ -54,6 +55,9 @@ impl MetaLensApp {
             rx: None,
             anim_time: 0.0,
             status_msg: "Ready — Drop a file or click Open".into(),
+            pending_file: initial_file,
+            logo_texture: None,
+            tab_scroll_offset: 0.0,
         }
     }
 
@@ -174,6 +178,11 @@ impl eframe::App for MetaLensApp {
     fn update(&mut self, ctx: &egui::Context, _frame: &mut eframe::Frame) {
         self.anim_time = ctx.input(|i| i.time);
 
+        // Auto-load file passed via CLI argument (context menu)
+        if let Some(path) = self.pending_file.take() {
+            self.load_file(path, ctx.clone());
+        }
+
         // Check for async load result
         if let Some(rx) = &self.rx {
             if let Ok(result) = rx.try_recv() {
@@ -221,21 +230,46 @@ impl eframe::App for MetaLensApp {
         let red = egui::Color32::from_rgb(248, 113, 113);
         let purple = egui::Color32::from_rgb(167, 139, 250);
         let border = egui::Color32::from_rgb(45, 45, 58);
+        
+        // ═══ CUSTOM VISUALS ═══
+        let mut visuals = egui::Visuals::dark();
+        visuals.panel_fill = bg_dark;
+        visuals.extreme_bg_color = bg_panel; // Scrollbar track matches panel
+        visuals.widgets.noninteractive.bg_fill = bg_panel;
+        visuals.widgets.inactive.bg_fill = egui::Color32::from_rgba_unmultiplied(100, 100, 100, 40); // Subtle handle
+        visuals.widgets.hovered.bg_fill = egui::Color32::from_rgba_unmultiplied(120, 120, 120, 80);
+        visuals.widgets.active.bg_fill = egui::Color32::from_rgba_unmultiplied(140, 140, 140, 120);
+        ctx.set_visuals(visuals);
 
         // ═══ LEFT SIDEBAR ═══
         egui::SidePanel::left("sidebar")
             .frame(egui::Frame::new().fill(bg_panel).inner_margin(20.0).outer_margin(0.0).stroke(egui::Stroke::NONE))
-            .exact_width(320.0)
+            .exact_width(260.0)
             .show(ctx, |ui| {
-                ui.add_space(8.0);
-                ui.horizontal(|ui| {
-                    ui.label(egui::RichText::new("\u{1F50D} MetaLens").size(22.0).strong().color(text_primary));
-                    if self.loading {
-                        ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
-                            ui.label(egui::RichText::new("\u{23F3}").size(16.0).color(accent));
-                        });
-                    }
-                });
+                ui.add_space(12.0);
+                
+                // Logo display
+                if self.logo_texture.is_none() {
+                    let logo_bytes = include_bytes!("../assets/logo.png");
+                    let image_data = image::load_from_memory(logo_bytes).expect("Failed to load embedded logo");
+                    let rgba = image_data.to_rgba8();
+                    let (width, height) = rgba.dimensions();
+                    let color_image = egui::ColorImage::from_rgba_unmultiplied(
+                        [width as usize, height as usize],
+                        &rgba,
+                    );
+                    self.logo_texture = Some(ctx.load_texture("app_logo", color_image, Default::default()));
+                }
+                
+                if let Some(texture) = &self.logo_texture {
+                    ui.vertical_centered(|ui| {
+                        ui.add(egui::Image::new(texture).max_width(64.0).max_height(64.0));
+                        ui.add_space(8.0);
+                        ui.label(egui::RichText::new("MetaLens").size(24.0).strong().color(text_primary));
+                        ui.label(egui::RichText::new("Deep Metadata").size(11.0).color(text_muted));
+                    });
+                }
+
                 ui.add_space(32.0);
                 
                 let btn = |ui: &mut egui::Ui, label: &str, primary: bool, width: f32| -> bool {
@@ -365,6 +399,14 @@ impl eframe::App for MetaLensApp {
                 
                 ui.with_layout(egui::Layout::bottom_up(egui::Align::Center), |ui| {
                     ui.add_space(8.0);
+                    // GitHub link
+                    ui.hyperlink_to(
+                        egui::RichText::new("github.com/Hamza-op").size(10.0).color(text_muted),
+                        "https://github.com/Hamza-op",
+                    );
+                    ui.add_space(2.0);
+                    ui.label(egui::RichText::new("Made with \u{1F980} Rust").size(10.0).color(text_muted));
+                    ui.add_space(6.0);
                     let exif_status = if self.exiftool_path.is_some() {
                         egui::RichText::new("\u{2705} ExifTool Ready").size(11.0).color(green)
                     } else {
@@ -381,7 +423,7 @@ impl eframe::App for MetaLensApp {
 
         egui::CentralPanel::default().frame(frame_bg).show(ctx, |ui| {
             ui.set_min_size(ui.available_size());
-            ui.add_space(12.0);
+            ui.add_space(24.0);
 
             if !self.file_loaded {
                 // Drop zone
@@ -399,16 +441,32 @@ impl eframe::App for MetaLensApp {
                 return; // skip the rest
             }
 
-            // Tabs
+            // Tabs with arrow navigation
             ui.horizontal(|ui| {
                 ui.add_space(16.0);
+                
+                // Left arrow
+                let left_btn = egui::Button::new(egui::RichText::new("◀").size(14.0).color(text_secondary))
+                    .fill(bg_card)
+                    .corner_radius(6.0)
+                    .stroke(egui::Stroke::new(1.0, border))
+                    .min_size(egui::vec2(28.0, 30.0));
+                if ui.add(left_btn).clicked() {
+                    self.tab_scroll_offset = (self.tab_scroll_offset - 150.0).max(0.0);
+                }
+
                 let tab_frame = egui::Frame::new()
                     .fill(bg_panel)
                     .corner_radius(10.0)
                     .inner_margin(egui::Margin::symmetric(4, 4));
                 tab_frame.show(ui, |ui| {
-                    ui.set_width(ui.available_width() - 32.0);
-                    egui::ScrollArea::horizontal().show(ui, |ui| {
+                    ui.set_width(ui.available_width() - 60.0);
+                    let scroll_area = egui::ScrollArea::horizontal()
+                        .auto_shrink([false; 2])
+                        .scroll_bar_visibility(egui::scroll_area::ScrollBarVisibility::AlwaysHidden)
+                        .horizontal_scroll_offset(self.tab_scroll_offset);
+                    
+                    let output = scroll_area.show(ui, |ui| {
                         ui.horizontal(|ui| {
                             let mut tabs: Vec<String> = vec!["\u{2B50} Summary".into(), "All Fields".into()];
                             tabs.extend(self.groups.iter().cloned());
@@ -429,10 +487,23 @@ impl eframe::App for MetaLensApp {
                             }
                         });
                     });
+                    // Sync offset back
+                    self.tab_scroll_offset = output.state.offset.x;
                 });
+
+                // Right arrow
+                let right_btn = egui::Button::new(egui::RichText::new("▶").size(14.0).color(text_secondary))
+                    .fill(bg_card)
+                    .corner_radius(6.0)
+                    .stroke(egui::Stroke::new(1.0, border))
+                    .min_size(egui::vec2(28.0, 30.0));
+                if ui.add(right_btn).clicked() {
+                    self.tab_scroll_offset += 150.0;
+                }
+
                 ui.add_space(16.0);
             });
-            ui.add_space(8.0);
+            ui.add_space(16.0);
 
             // ═══ CONTENT AREA ═══
             let content_frame = egui::Frame::new()

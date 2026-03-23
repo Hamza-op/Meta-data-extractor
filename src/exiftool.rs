@@ -31,15 +31,16 @@ pub fn find_exiftool() -> Option<PathBuf> {
         }
     }
 
-    // 3. Check PATH via `where`
-    let mut cmd = Command::new("where");
-    cmd.arg("exiftool.exe");
+    // 3. Search system PATH
+    let lookup_cmd = if cfg!(windows) { "where" } else { "which" };
+    let mut cmd = Command::new(lookup_cmd);
+    cmd.arg("exiftool");
     #[cfg(windows)]
     cmd.creation_flags(0x08000000);
-    
+
     if let Ok(out) = cmd.output() {
         if out.status.success() {
-            let s = String::from_utf8_lossy(&out.stdout);
+            let s = String::from_utf8_lossy(&out.stdout).trim().to_string();
             if let Some(line) = s.lines().next() {
                 let p = PathBuf::from(line.trim());
                 if p.exists() {
@@ -49,26 +50,32 @@ pub fn find_exiftool() -> Option<PathBuf> {
         }
     }
 
-    // 4. Common locations
-    for path in &[
-        "C:\\exiftool\\exiftool.exe",
-        "C:\\Windows\\exiftool.exe",
-        "C:\\Program Files\\ExifTool\\exiftool.exe",
-        "C:\\Program Files (x86)\\ExifTool\\exiftool.exe",
-    ] {
-        let p = PathBuf::from(path);
-        if p.exists() {
-            return Some(p);
+    // 4. Common linux/mac locations
+    if !cfg!(windows) {
+        for p_str in &[
+            "/usr/local/bin/exiftool",
+            "/usr/bin/exiftool",
+            "/opt/homebrew/bin/exiftool",
+        ] {
+            let p = PathBuf::from(p_str);
+            if p.exists() {
+                return Some(p);
+            }
         }
     }
 
     None
 }
 
-/// Ensures the embedded ExifTool payload is extracted to %TEMP%\MetaLens
+/// Ensures the embedded ExifTool payload is extracted to temporary storage.
 fn ensure_embedded_exiftool() -> Option<PathBuf> {
-    let temp_dir = std::env::var_os("TEMP")?;
-    let dest_dir = PathBuf::from(temp_dir).join("MetaLens");
+    // Embedded payload is Windows-only for now due to perl requirement on Unix
+    if !cfg!(windows) {
+        return None;
+    }
+
+    let temp_dir = std::env::temp_dir();
+    let dest_dir = temp_dir.join("MetaLens");
     let dest_exe = dest_dir.join("exiftool(-k).exe");
 
     // Check if it already exists and seems fully extracted

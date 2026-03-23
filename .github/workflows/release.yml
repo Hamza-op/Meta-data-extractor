@@ -2,28 +2,45 @@ name: Release MetaLens
 
 on:
   push:
-    branches:
-      - main
     tags:
       - 'v*'
-  workflow_dispatch: # Allow manual triggering
+  workflow_dispatch:
 
 permissions:
   contents: write
 
 jobs:
-  build-release:
-    name: Build & Release for Windows
-    runs-on: windows-latest
+  build:
+    name: Build (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: windows-latest
+            artifact_name: MetaLens.exe
+            release_name: MetaLens-Windows.exe
+          - os: macos-latest
+            artifact_name: MetaLens
+            release_name: MetaLens-macOS
+          - os: ubuntu-latest
+            artifact_name: MetaLens
+            release_name: MetaLens-Linux
 
     steps:
       - name: Checkout Repository
         uses: actions/checkout@v4
 
+      - name: Install System Dependencies (Linux)
+        if: matrix.os == 'ubuntu-latest'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libgtk-3-dev libasound2-dev libwayland-dev libxkbcommon-dev
+
       - name: Install Rust Toolchain
         uses: dtolnay/rust-toolchain@stable
 
-      - name: Cache Cargo Dependencies
+      - name: Cache Cargo
         uses: actions/cache@v4
         with:
           path: |
@@ -39,27 +56,45 @@ jobs:
       - name: Build Release Binary
         run: cargo build --release
 
-      - name: Prepare Binary
-        shell: pwsh
+      - name: Prepare Artifact
+        shell: bash
         run: |
-          $Version = "${{ github.ref_name }}"
-          if ($Version -eq "main") { $Version = "latest" }
-          Copy-Item "target/release/MetaLens.exe" "MetaLens-$Version.exe"
+          mkdir -p dist
+          if [ "${{ matrix.os }}" = "windows-latest" ]; then
+            cp target/release/${{ matrix.artifact_name }} dist/${{ matrix.release_name }}
+          else
+            cp target/release/${{ matrix.artifact_name }} dist/${{ matrix.release_name }}
+            chmod +x dist/${{ matrix.release_name }}
+          fi
 
-      - name: Create GitHub Release
-        uses: softprops/action-gh-release@v2
-        if: startsWith(github.ref, 'refs/tags/')
+      - name: Upload Artifact
+        uses: actions/upload-artifact@v4
         with:
-          files: MetaLens-${{ github.ref_name }}.exe
+          name: ${{ matrix.os }}-binary
+          path: dist/
+
+  release:
+    name: Create GitHub Release
+    needs: build
+    runs-on: ubuntu-latest
+    if: startsWith(github.ref, 'refs/tags/')
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Download All Artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: artifacts
+          merge-multiple: true
+
+      - name: Create Release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: artifacts/*
           generate_release_notes: true
           draft: false
           prerelease: false
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Upload Artifact (Manual/Branch)
-        if: "!startsWith(github.ref, 'refs/tags/')"
-        uses: actions/upload-artifact@v4
-        with:
-          name: MetaLens-Binary
-          path: MetaLens-latest.exe

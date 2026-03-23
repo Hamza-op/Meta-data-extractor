@@ -1,4 +1,4 @@
-#![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
+#![cfg_attr(windows, windows_subsystem = "windows")]
 
 #[cfg(windows)]
 use std::os::windows::process::CommandExt;
@@ -28,11 +28,12 @@ fn main() -> eframe::Result<()> {
 
     // Handle --uninstall-context-menu flag
     if args.iter().any(|a| a == "--uninstall-context-menu") {
+        #[cfg(windows)]
         uninstall_context_menu();
         return Ok(());
     }
 
-    // Auto-register context menu on every launch (idempotent, keeps path up to date)
+    #[cfg(windows)]
     install_context_menu();
 
     // Check if a file path was passed as a CLI argument (e.g. from context menu)
@@ -58,6 +59,7 @@ fn main() -> eframe::Result<()> {
 
 /// Registers "Open in MetaLens" in the Windows right-click context menu for all file types.
 /// Uses HKCU so no admin rights needed. Idempotent — safe to call on every launch.
+#[cfg(windows)]
 fn install_context_menu() {
     let exe = std::env::current_exe().unwrap_or_default();
     let exe_str = exe.display().to_string();
@@ -104,6 +106,7 @@ fn install_context_menu() {
 }
 
 /// Removes the context menu registry entry.
+#[cfg(windows)]
 fn uninstall_context_menu() {
     let _ = std::process::Command::new("reg")
         .args(["delete", r#"HKCU\Software\Classes\*\shell\MetaLens"#, "/f"])

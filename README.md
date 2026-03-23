@@ -1,87 +1,72 @@
 # MetaLens — Deep Metadata Analyzer
 
-MetaLens is a high-performance, premium Windows utility designed for forensic-grade metadata extraction. It provides a deep dive into photos, RAW files, videos, and audio, exposing thousands of hidden tags that standard explorers miss.
+<div align="center">
+  <img src="assets/logo.png" width="96" height="96" alt="MetaLens Logo">
+  <h3>The Forensic-Grade Metadata Explorer</h3>
+</div>
 
-Built with **Rust** using the [egui](https://github.com/emilk/egui) framework, MetaLens seamlessly wraps the industry-standard [ExifTool](https://exiftool.org) engine in a modern, hardware-accelerated interface.
+---
 
-![MetaLens UI](assets/logo.png)
+**MetaLens** is a high-performance, premium utility designed for deep metadata extraction. It provides a surgical look into your photos, RAW files, videos, and documents, exposing thousands of hidden tags that standard file explorers ignore.
+
+Built with **Rust** using the [egui](https://github.com/emilk/egui) framework, MetaLens blends hardware acceleration with a cinematic **"Dark Observatory"** aesthetic inspired by professional photography software.
+
+---
+
+## 🌌 The Dark Observatory Experience
+- **Cinematic Palette**: A warm obsidian & amber glow theme designed for long-session analysis.
+- **Hardware Accelerated**: Silky-smooth 144Hz+ rendering via `wgpu`.
+- **Atmospheric UI**: Animated drop zones, shimmering load states, and precise typography.
+- **Cross-Platform**: Designed for Windows (with deep shell integration), Linux, and macOS.
 
 ## 🚀 Key Features
 
-### 📂 Explorer Integration
-- **Smart Context Menu**: Automatically registers an "**Open in MetaLens**" right-click option in Windows Explorer for all supported file types.
-- **Strict Filtering**: The context menu only appears for supported media formats (Images, Video, RAW, etc.), keeping your Windows shell clean.
-- **One-Click Launch**: Instantly analyze any file directly from your folder without opening the app first.
+### 📂 Shell Integration (Windows)
+- **Smart Context Menu**: Right-click any supported media file to "Open in MetaLens".
+- **Ultra-Selective**: The menu intelligently hides for unsupported file types, keeping your shell clean.
+- **Zero-Launch Workflow**: Instantly analyze files without pre-opening the application.
 
-### 🧠 Forensic Metadata Engine
-- **400+ Formats**: Full support for JPEG, PNG, TIFF, and exotic RAW formats (CR3, ARW, DNG), plus Video (MP4, MOV, MKV) and Audio metadata.
-- **Proprietary MakerNotes**: Extracts deep manufacturer-specific data for Sony, Canon, Nikon, Fujifilm, and more.
-- **Internet Enrichment**:
-  - **Reverse Geocoding**: Automatically translates GPS coordinates into human-readable street addresses via OpenStreetMap (Nominatim).
-  - **Historical Weather**: Fetches precise local weather conditions (temperature, sky state) at the exact time and location the file was captured via Open-Meteo.
+### 🧠 Expert Metadata Support
+- **400+ Formats**: Full support for JPG, PNG, TIFF, HEIC, and exotic RAW (CR3, ARW, DNG, RAF).
+- **Pro Media Support**: Extract deep metadata from MP4, MOV, MKV, MP3, and PDF.
+- **Proprietary MakerNotes**: Forensic-grade extraction for Sony, Canon, Nikon, Fuji, and more.
 
-### 📸 Pro Camera Diagnostics
-- **Live Shutter Count**: Instantly calculates the total shutter actuations for supported DSLRs and Mirrorless cameras.
-- **Health Visualization**: Compares your current shutter count against known manufacturer lifespan ratings with a dynamic health gauge.
-- **Camera Database**: Identifies exact camera models and lens hardware from internal EXIF codes.
-
-### 🎨 Premium User Experience
-- **Modern Dark UI**: Hardware-accelerated, high-DPI interface with silky smooth transitions and professional aesthetics.
-- **Instant Filtering**: Real-time fuzzy search through thousands of metadata tags.
-- **Standalone/Embedded**: ExifTool is securely embedded inside the binary; the app is a zero-dependency, single-file executable for the end user.
+### 📸 Intelligent Diagnostics
+- **Live Shutter Count**: Direct calculation of total shutter actuations (where supported).
+- **Camera Health Gauge**: Compares current count against manufacturer-rated lifespan.
+- **Smart Enrichment**:
+  - 📍 **Reverse Geocoding**: Translates GPS into human-readable locations.
+  - ☁️ **Weather Forensics**: Syncs capture time with historical weather data.
 
 ---
 
-## 🛠 Usage & Installation
+## 🛠 Installation
 
-### Context Menu Setup
-MetaLens **automatically registers itself** on the first run. 
-1. Launch `MetaLens.exe`.
-2. The "**Open in MetaLens**" entry is now live in your Windows right-click menu.
-3. To remove the context menu entry:
-   ```powershell
-   .\MetaLens.exe --uninstall-context-menu
-   ```
+### Binary Release
+Download the latest `MetaLens.exe` from the [Releases](https://github.com/Hamza-op/MetaLens/releases) page.
+- **First Run**: Simply launch the app; it will automatically register the "Open in MetaLens" context menu.
+- **Uninstall Menu**: Run `metaLens.exe --uninstall-context-menu` from PowerShell.
 
-### Command Line Interface
-MetaLens supports direct file passing via CLI:
-```powershell
-.\MetaLens.exe "C:\Path\To\MyPhoto.jpg"
-```
-
----
-
-## 🏗 Technical Stack
-
-- **Core**: Rust (2021 Edition)
-- **GUI**: `egui` / `eframe` (v0.31)
-- **Engine**: Phil Harvey's ExifTool (Embedded ZIP Payload)
-- **Networking**: `ureq` (Synchronous HTTP)
-- **Serialization**: `serde` / `serde_json`
-- **Image Processing**: `image` (Icon and Logo rendering)
-- **Registry**: Direct Windows Shell registration via `std::process::Command`
-
----
-
-## 📦 Building from Source
-
-Requires the latest **Rust** toolchain on Windows.
+### Manual Build
+Requires the **Rust** (2021 Edition) toolchain.
 
 1. **Clone**: `git clone https://github.com/Hamza-op/MetaLens`
 2. **Assets**: Ensure `assets/logo.png` and `assets/payload.zip` (containing `exiftool.exe`) are present.
-3. **Compile**:
-   ```powershell
+3. **Build**:
+   ```bash
    cargo build --release
    ```
-4. **Output**: The binary will be at `.\target\release\MetaLens.exe`.
 
 ---
 
-## 🤝 Credits
+## 🤝 Project Info
 
-Developed with ❤️ and 🦀 Rust by **[Hamza-op](https://github.com/Hamza-op)**.
+- **Core Engine**: Phil Harvey's [ExifTool](https://exiftool.org) (Securely Embedded)
+- **GUI Engine**: `egui` / `eframe` (v0.31)
+- **Data Enrichment**: Powered by OpenStreetMap and Open-Meteo.
+- **Developed by**: [Hamza-op](https://github.com/Hamza-op)
 
 ---
 
 ### License
-MIT License. ExifTool is licensed under the Artistic License / GPL. Data enrichment powered by OpenStreetMap and Open-Meteo.
+MIT License. ExifTool is licensed under Artistic License / GPL.

@@ -15,7 +15,7 @@ pub struct SummaryField {
 pub fn summary_fields() -> Vec<SummaryField> {
     vec![
         SummaryField { display_name: "Date Taken", aliases: &["date/time original", "datetimeoriginal", "create date", "createdate"] },
-        SummaryField { display_name: "Camera Model", aliases: &["camera model name", "model"] },
+        SummaryField { display_name: "Camera Model", aliases: &["camera model name", "model", "device model name", "model name", "android model", "android device model", "capture device model", "source device model", "video camera model", "equipment model", "product name"] },
         SummaryField { display_name: "Lens Model", aliases: &["lens model", "lens", "lens type"] },
         SummaryField { display_name: "ISO", aliases: &["iso", "iso speed", "iso speed ratings"] },
         SummaryField { display_name: "Aperture", aliases: &["aperture", "aperture value", "f number", "fnumber"] },
@@ -40,7 +40,7 @@ pub fn summary_fields() -> Vec<SummaryField> {
         SummaryField { display_name: "Metering Mode", aliases: &["metering mode", "meteringmode"] },
         SummaryField { display_name: "Focus Mode", aliases: &["focus mode", "focusmode", "af mode"] },
         SummaryField { display_name: "Flash Mode", aliases: &["flash", "flash mode", "flashmode"] },
-        SummaryField { display_name: "Camera Make", aliases: &["make"] },
+        SummaryField { display_name: "Camera Make", aliases: &["make", "manufacturer", "android manufacturer", "android device manufacturer", "camera make", "source device manufacturer"] },
         SummaryField { display_name: "Bit Depth", aliases: &["bit depth", "bitdepth", "bits per sample", "bitspersample"] },
         SummaryField { display_name: "Color Space", aliases: &["color space", "colorspace"] },
         SummaryField { display_name: "Audio Channels", aliases: &["audio channels", "audiochannels", "channels", "channel count"] },

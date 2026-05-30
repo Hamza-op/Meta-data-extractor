@@ -189,10 +189,31 @@ pub fn parse_output(output: &str) -> ParseResult {
         let tag_low = tag.to_lowercase();
 
         // Collect model/lens info
-        if (tag_low == "camera model name" || tag_low == "model") && found_model.is_empty() {
+        let model_tags = [
+            "camera model name",
+            "model",
+            "device model name",
+            "model name",
+            "android model",
+            "android device model",
+            "capture device model",
+            "source device model",
+            "video camera model",
+            "equipment model",
+            "product name",
+        ];
+        if model_tags.iter().any(|t| tag_low == *t) && found_model.is_empty() {
             found_model = value.clone();
         }
-        if tag_low == "make" && found_make.is_empty() {
+        let make_tags = [
+            "make",
+            "manufacturer",
+            "android manufacturer",
+            "android device manufacturer",
+            "camera make",
+            "source device manufacturer",
+        ];
+        if make_tags.iter().any(|t| tag_low == *t) && found_make.is_empty() {
             found_make = value.clone();
         }
         if (tag_low == "lens model" || tag_low == "lens") && found_lens_model.is_empty() {
@@ -294,5 +315,24 @@ mod tests {
                 && e.tag.contains("Identified Lens")
                 && e.value.contains("Sony FE 24-70mm")
         }));
+    }
+
+    #[test]
+    fn parse_output_detects_various_video_camera_models() {
+        let outputs = vec![
+            ("[QuickTime] Model : iPhone 15 Pro", "Apple iPhone 15 Pro"),
+            ("[Keys] Model : dji mavic 3", "DJI Mavic 3"),
+            ("[UserData] Model : hero12 black", "GoPro HERO12 Black"),
+            ("[Android] Android Model : Pixel 9 Pro XL", "Google Pixel 9 Pro XL"),
+        ];
+
+        for (raw_line, expected_resolved) in outputs {
+            let parsed = parse_output(raw_line);
+            assert!(parsed.entries.iter().any(|e| {
+                e.group == "Camera Info"
+                    && e.tag.contains("Identified Camera")
+                    && e.value.contains(expected_resolved)
+            }), "Failed for line: {}", raw_line);
+        }
     }
 }

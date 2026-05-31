@@ -1,6 +1,7 @@
 #![cfg_attr(windows, windows_subsystem = "windows")]
 
 #[cfg(windows)]
+#[allow(unused_imports)]
 use std::os::windows::process::CommandExt;
 
 mod app;
@@ -47,7 +48,7 @@ fn main() -> eframe::Result<()> {
             .with_inner_size([960.0, 640.0])
             .with_min_inner_size([750.0, 500.0])
             .with_drag_and_drop(true)
-            .with_icon(load_icon().unwrap_or_else(|| egui::IconData::default())),
+            .with_icon(load_icon().unwrap_or_default()),
         ..Default::default()
     };
     eframe::run_native(
@@ -65,7 +66,7 @@ fn install_context_menu() {
     let exe_str = exe.display().to_string();
 
     let reg_key = r#"HKCU\Software\Classes\*\shell\MetaLens"#;
-    let reg_cmd = format!(r#"HKCU\Software\Classes\*\shell\MetaLens\command"#);
+    let reg_cmd = r#"HKCU\Software\Classes\*\shell\MetaLens\command"#.to_string();
 
     // Set display name
     let _ = std::process::Command::new("reg")

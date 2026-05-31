@@ -228,7 +228,7 @@ impl eframe::App for MetaLensApp {
         }
 
         // Handle dropped files
-        ctx.input(|i| {
+        if let Some(p) = ctx.input(|i| {
             if !i.raw.dropped_files.is_empty() {
                 if let Some(p) = i.raw.dropped_files[0].path.as_ref() {
                     let path_str = p.display().to_string();
@@ -236,7 +236,9 @@ impl eframe::App for MetaLensApp {
                 }
             }
             None
-        }).map(|p| self.load_file(p, ctx.clone()));
+        }) {
+            self.load_file(p, ctx.clone());
+        }
 
         // ═══════════════════════════════════════════════════════════
         // "DARK OBSERVATORY" PALETTE — Warm Obsidian + Amber Glow
@@ -733,7 +735,7 @@ impl eframe::App for MetaLensApp {
                             ui.end_row();
 
                             // ── Data rows ──
-                            for (_row_idx, entry) in self.filtered_entries.iter().enumerate() {
+                            for entry in &self.filtered_entries {
                                 let is_missing = entry.value == "\u{2014}";
                                 let is_camera = entry.tag.contains("Identified Camera");
                                 let is_lens = entry.tag.contains("Identified Lens")

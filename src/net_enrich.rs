@@ -48,7 +48,11 @@ pub fn fetch_internet_metadata(entries: &[MetadataEntry]) -> Vec<MetadataEntry> 
     );
 
     if let Ok(resp) = ureq::get(&nominatim_url)
-        .set("User-Agent", "MetaLens-App/1.0 (Contact: metalens@example.com)")
+        .set(
+            "User-Agent",
+            "MetaLens-App/1.0 (Contact: metalens@example.com)",
+        )
+        .timeout(std::time::Duration::from_secs(5))
         .call()
     {
         if let Ok(json) = resp.into_json::<NominatimResponse>() {
@@ -88,7 +92,7 @@ pub fn fetch_internet_metadata(entries: &[MetadataEntry]) -> Vec<MetadataEntry> 
         // Exif Date format: "2018:05:27 08:03:00" -> extract "2018-05-27"
         if date_exif.len() >= 10 {
             let yyyy_mm_dd = date_exif[0..10].replace(':', "-");
-            
+
             // Note: Open-Meteo historical needs start_date and end_date
             let meteo_url = format!(
                 "https://archive-api.open-meteo.com/v1/archive?latitude={}&longitude={}&start_date={}&end_date={}&daily=temperature_2m_max,temperature_2m_min,weathercode&timezone=auto",
@@ -106,39 +110,39 @@ pub fn fetch_internet_metadata(entries: &[MetadataEntry]) -> Vec<MetadataEntry> 
                 daily: Option<Daily>,
             }
 
-            if let Ok(resp) = ureq::get(&meteo_url).call() {
+            if let Ok(resp) = ureq::get(&meteo_url)
+                .timeout(std::time::Duration::from_secs(5))
+                .call()
+            {
                 if let Ok(json) = resp.into_json::<MeteoHist>() {
                     if let Some(daily) = json.daily {
-                        if !daily.temperature_2m_max.is_empty() {
-                            let max_t = daily.temperature_2m_max[0];
-                            let min_t = daily.temperature_2m_min[0];
-                            let wc = daily.weathercode.get(0).copied().flatten();
+                        if let (Some(max_t), Some(min_t)) = (
+                            daily.temperature_2m_max.first().copied().flatten(),
+                            daily.temperature_2m_min.first().copied().flatten(),
+                        ) {
+                            results.push(MetadataEntry {
+                                group: "Internet Data".into(),
+                                tag: "🌡️ Historic Temperature".into(),
+                                value: format!("{:.1}°C / {:.1}°C (Max/Min)", max_t, min_t),
+                            });
+                        }
 
-                            if let (Some(max), Some(min)) = (max_t, min_t) {
-                                results.push(MetadataEntry {
-                                    group: "Internet Data".into(),
-                                    tag: "🌡️ Historic Temperature".into(),
-                                    value: format!("{:.1}°C / {:.1}°C (Max/Min)", max, min),
-                                });
-                            }
-
-                            if let Some(code) = wc {
-                                let weather_desc = match code {
-                                    0 => "☀️ Clear sky",
-                                    1|2|3 => "🌤️ Partly cloudy",
-                                    45|48 => "🌫️ Fog",
-                                    51..=55 => "🌧️ Drizzle",
-                                    61..=65 => "🌧️ Rain",
-                                    71..=75 => "❄️ Snow",
-                                    95|96|99 => "⛈️ Thunderstorm",
-                                    _ => "☁️ Overcast",
-                                };
-                                results.push(MetadataEntry {
-                                    group: "Internet Data".into(),
-                                    tag: "☁️ Historic Weather".into(),
-                                    value: weather_desc.into(),
-                                });
-                            }
+                        if let Some(code) = daily.weathercode.first().copied().flatten() {
+                            let weather_desc = match code {
+                                0 => "☀️ Clear sky",
+                                1..=3 => "🌤️ Partly cloudy",
+                                45 | 48 => "🌫️ Fog",
+                                51..=55 => "🌧️ Drizzle",
+                                61..=65 => "🌧️ Rain",
+                                71..=75 => "❄️ Snow",
+                                95 | 96 | 99 => "⛈️ Thunderstorm",
+                                _ => "☁️ Overcast",
+                            };
+                            results.push(MetadataEntry {
+                                group: "Internet Data".into(),
+                                tag: "☁️ Historic Weather".into(),
+                                value: weather_desc.into(),
+                            });
                         }
                     }
                 }

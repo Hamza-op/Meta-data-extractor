@@ -1,11 +1,14 @@
 use crate::camera_db;
 use crate::metadata::MetadataEntry;
+#[allow(unused_imports)]
 use std::fs::File;
+#[allow(unused_imports)]
 use std::io;
 use std::path::{Path, PathBuf};
 use std::process::Command;
 #[cfg(windows)]
 use std::os::windows::process::CommandExt;
+#[allow(unused_imports)]
 use zip::ZipArchive;
 
 /// Embedded ExifTool payload (zip containing exiftool(-k).exe and exiftool_files)
@@ -78,8 +81,14 @@ fn ensure_embedded_exiftool() -> Option<PathBuf> {
     let dest_dir = temp_dir.join("MetaLens");
     let dest_exe = dest_dir.join("exiftool(-k).exe");
 
-    // Check if it already exists and seems fully extracted
-    if dest_exe.exists() && dest_dir.join("exiftool_files").exists() {
+    // Check if it already exists and seems fully extracted (non-empty)
+    let files_dir = dest_dir.join("exiftool_files");
+    let is_extracted = dest_exe.exists()
+        && files_dir.exists()
+        && std::fs::read_dir(&files_dir)
+            .map(|mut entries| entries.next().is_some())
+            .unwrap_or(false);
+    if is_extracted {
         return Some(dest_exe);
     }
 

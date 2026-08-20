@@ -76,8 +76,9 @@ impl MetaLensApp {
             match exiftool::run_exiftool(&exiftool, &file_path_buf) {
                 Ok(output) => {
                     let mut parsed = exiftool::parse_output(&output);
-                    
-                    let internet_entries = crate::net_enrich::fetch_internet_metadata(&parsed.entries);
+
+                    let internet_entries =
+                        crate::net_enrich::fetch_internet_metadata(&parsed.entries);
                     if !internet_entries.is_empty() {
                         parsed.entries.extend(internet_entries);
                         if !parsed.groups.contains(&"Internet Data".to_string()) {
@@ -86,7 +87,8 @@ impl MetaLensApp {
                     }
 
                     let summary = metadata::build_summary(&parsed.entries);
-                    let shutter = metadata::extract_shutter_info(&parsed.entries, &parsed.found_model);
+                    let shutter =
+                        metadata::extract_shutter_info(&parsed.entries, &parsed.found_model);
                     let _ = tx.send(LoadResult {
                         entries: parsed.entries,
                         summary,
@@ -98,7 +100,11 @@ impl MetaLensApp {
                 }
                 Err(e) => {
                     let _ = tx.send(LoadResult {
-                        entries: vec![MetadataEntry { group: "Error".into(), tag: "Error".into(), value: e }],
+                        entries: vec![MetadataEntry {
+                            group: "Error".into(),
+                            tag: "Error".into(),
+                            value: e,
+                        }],
                         summary: Vec::new(),
                         groups: Vec::new(),
                         shutter: None,
@@ -136,7 +142,9 @@ impl MetaLensApp {
     }
 
     fn export(&self) {
-        if self.all_entries.is_empty() { return; }
+        if self.all_entries.is_empty() {
+            return;
+        }
         if let Some(path) = rfd::FileDialog::new()
             .set_file_name("metadata_export.txt")
             .add_filter("Text File", &["txt"])
@@ -156,7 +164,9 @@ impl MetaLensApp {
     }
 
     fn copy_all(&self) {
-        if self.filtered_entries.is_empty() { return; }
+        if self.filtered_entries.is_empty() {
+            return;
+        }
         let mut text = format!("MetaLens Metadata — {}\n", self.current_file);
         text += "═══════════════════════════════════════\n\n";
         let mut last_group = String::new();
@@ -221,8 +231,17 @@ impl eframe::App for MetaLensApp {
                 self.active_tab = 0;
                 self.search_query.clear();
                 self.apply_filter();
-                let found = self.summary_entries.iter().filter(|e| e.value != "\u{2014}").count();
-                self.status_msg = format!("\u{2B50} Summary — {} / {} fields  |  {} total tags", found, self.summary_entries.len(), self.all_entries.len());
+                let found = self
+                    .summary_entries
+                    .iter()
+                    .filter(|e| e.value != "\u{2014}")
+                    .count();
+                self.status_msg = format!(
+                    "\u{2B50} Summary — {} / {} fields  |  {} total tags",
+                    found,
+                    self.summary_entries.len(),
+                    self.all_entries.len()
+                );
                 self.rx = None;
             }
         }
@@ -243,31 +262,31 @@ impl eframe::App for MetaLensApp {
         // ═══════════════════════════════════════════════════════════
         // "DARK OBSERVATORY" PALETTE — Warm Obsidian + Amber Glow
         // ═══════════════════════════════════════════════════════════
-        let bg_abyss       = egui::Color32::from_rgb(8, 8, 12);       // Deepest background
-        let bg_panel       = egui::Color32::from_rgb(16, 15, 20);     // Sidebar / panels
-        let bg_card        = egui::Color32::from_rgb(24, 23, 30);     // Cards / elevated surfaces
-        let bg_input       = egui::Color32::from_rgb(32, 30, 40);     // Input fields
+        let bg_abyss = egui::Color32::from_rgb(8, 8, 12); // Deepest background
+        let bg_panel = egui::Color32::from_rgb(16, 15, 20); // Sidebar / panels
+        let bg_card = egui::Color32::from_rgb(24, 23, 30); // Cards / elevated surfaces
+        let bg_input = egui::Color32::from_rgb(32, 30, 40); // Input fields
 
         // Amber / Gold accent — the hero color
-        let amber          = egui::Color32::from_rgb(232, 168, 56);   // Primary warm gold
-        let amber_bright   = egui::Color32::from_rgb(250, 196, 80);   // Hover / highlights
-        let amber_dim      = egui::Color32::from_rgb(180, 120, 30);   // Muted gold
+        let amber = egui::Color32::from_rgb(232, 168, 56); // Primary warm gold
+        let amber_bright = egui::Color32::from_rgb(250, 196, 80); // Hover / highlights
+        let amber_dim = egui::Color32::from_rgb(180, 120, 30); // Muted gold
 
         // Supporting accents
-        let teal           = egui::Color32::from_rgb(72, 202, 190);   // Field names / links
-        let sage           = egui::Color32::from_rgb(120, 200, 140);  // Success / health good
-        let copper         = egui::Color32::from_rgb(220, 140, 60);   // Warning / lens info
-        let coral          = egui::Color32::from_rgb(235, 100, 90);   // Error / danger
-        let mauve          = egui::Color32::from_rgb(180, 150, 210);  // File name / purple accent
+        let teal = egui::Color32::from_rgb(72, 202, 190); // Field names / links
+        let sage = egui::Color32::from_rgb(120, 200, 140); // Success / health good
+        let copper = egui::Color32::from_rgb(220, 140, 60); // Warning / lens info
+        let coral = egui::Color32::from_rgb(235, 100, 90); // Error / danger
+        let mauve = egui::Color32::from_rgb(180, 150, 210); // File name / purple accent
 
         // Text hierarchy
-        let text_cream     = egui::Color32::from_rgb(235, 230, 220);  // Primary text (warm white)
-        let text_silver    = egui::Color32::from_rgb(160, 155, 165);  // Secondary labels
-        let text_graphite  = egui::Color32::from_rgb(85, 80, 95);     // Muted / disabled
+        let text_cream = egui::Color32::from_rgb(235, 230, 220); // Primary text (warm white)
+        let text_silver = egui::Color32::from_rgb(160, 155, 165); // Secondary labels
+        let text_graphite = egui::Color32::from_rgb(85, 80, 95); // Muted / disabled
 
         // Borders & dividers
-        let border_subtle  = egui::Color32::from_rgb(40, 38, 50);     // Card borders
-        let border_warm    = egui::Color32::from_rgb(55, 48, 38);     // Warm-tinted separator
+        let border_subtle = egui::Color32::from_rgb(40, 38, 50); // Card borders
+        let border_warm = egui::Color32::from_rgb(55, 48, 38); // Warm-tinted separator
 
         // ═══ CUSTOM VISUALS ═══
         let mut visuals = egui::Visuals::dark();
@@ -278,7 +297,7 @@ impl eframe::App for MetaLensApp {
         visuals.widgets.hovered.bg_fill = egui::Color32::from_rgba_unmultiplied(110, 95, 60, 80);
         visuals.widgets.active.bg_fill = egui::Color32::from_rgba_unmultiplied(140, 120, 70, 120);
         visuals.selection.bg_fill = amber.gamma_multiply(0.25);
-        visuals.selection.stroke = egui::Stroke::new(1.0, amber);
+        visuals.selection.stroke = egui::Stroke::new(1.0_f32, amber);
         ctx.set_visuals(visuals);
 
         // ═══════════════════════════════════════════════════════
@@ -290,7 +309,7 @@ impl eframe::App for MetaLensApp {
                     .fill(bg_panel)
                     .inner_margin(22.0)
                     .outer_margin(0.0)
-                    .stroke(egui::Stroke::new(1.0, border_subtle)),
+                    .stroke(egui::Stroke::new(1.0_f32, border_subtle)),
             )
             .exact_width(270.0)
             .show(ctx, |ui| {
@@ -299,23 +318,34 @@ impl eframe::App for MetaLensApp {
                 // ── Logo ──
                 if self.logo_texture.is_none() {
                     let logo_bytes = include_bytes!("../assets/logo.png");
-                    let image_data = image::load_from_memory(logo_bytes).expect("Failed to load embedded logo");
+                    let image_data =
+                        image::load_from_memory(logo_bytes).expect("Failed to load embedded logo");
                     let rgba = image_data.to_rgba8();
                     let (width, height) = rgba.dimensions();
                     let color_image = egui::ColorImage::from_rgba_unmultiplied(
                         [width as usize, height as usize],
                         &rgba,
                     );
-                    self.logo_texture = Some(ctx.load_texture("app_logo", color_image, Default::default()));
+                    self.logo_texture =
+                        Some(ctx.load_texture("app_logo", color_image, Default::default()));
                 }
 
                 if let Some(texture) = &self.logo_texture {
                     ui.vertical_centered(|ui| {
                         ui.add(egui::Image::new(texture).max_width(56.0).max_height(56.0));
                         ui.add_space(10.0);
-                        ui.label(egui::RichText::new("MetaLens").size(26.0).strong().color(text_cream));
+                        ui.label(
+                            egui::RichText::new("MetaLens")
+                                .size(26.0)
+                                .strong()
+                                .color(text_cream),
+                        );
                         ui.add_space(2.0);
-                        ui.label(egui::RichText::new("Deep Metadata Analyzer").size(11.0).color(text_graphite));
+                        ui.label(
+                            egui::RichText::new("Deep Metadata Analyzer")
+                                .size(11.0)
+                                .color(text_graphite),
+                        );
                     });
                 }
 
@@ -323,7 +353,10 @@ impl eframe::App for MetaLensApp {
 
                 // ── Warm divider ──
                 {
-                    let (rect, _) = ui.allocate_exact_size(egui::vec2(ui.available_width(), 1.0), egui::Sense::hover());
+                    let (rect, _) = ui.allocate_exact_size(
+                        egui::vec2(ui.available_width(), 1.0),
+                        egui::Sense::hover(),
+                    );
                     let painter = ui.painter();
                     let mid = rect.center().x;
                     let half = rect.width() * 0.4;
@@ -334,46 +367,85 @@ impl eframe::App for MetaLensApp {
                         let alpha = (1.0 - dist * dist) * 0.6;
                         let x = mid - half + half * 2.0 * t;
                         painter.line_segment(
-                            [egui::pos2(x, rect.min.y), egui::pos2(x + half * 2.0 / 20.0, rect.min.y)],
-                            egui::Stroke::new(1.0, amber_dim.gamma_multiply(alpha)),
+                            [
+                                egui::pos2(x, rect.min.y),
+                                egui::pos2(x + half * 2.0 / 20.0, rect.min.y),
+                            ],
+                            egui::Stroke::new(1.0_f32, amber_dim.gamma_multiply(alpha)),
                         );
                     }
                 }
                 ui.add_space(24.0);
 
                 // ── Action buttons ──
-                let sidebar_btn = |ui: &mut egui::Ui, label: &str, primary: bool, width: f32| -> bool {
+                let sidebar_btn = |ui: &mut egui::Ui,
+                                   label: &str,
+                                   primary: bool,
+                                   width: f32|
+                 -> bool {
                     let (bg, text_col, stroke_col) = if primary {
                         (amber, egui::Color32::from_rgb(20, 15, 5), amber)
                     } else {
                         (bg_card, text_silver, border_subtle)
                     };
-                    let btn = egui::Button::new(egui::RichText::new(label).color(text_col).size(14.0).strong())
-                        .fill(bg)
-                        .corner_radius(10.0)
-                        .stroke(egui::Stroke::new(1.0, stroke_col.gamma_multiply(0.5)))
-                        .min_size(egui::vec2(width, 40.0));
+                    let btn = egui::Button::new(
+                        egui::RichText::new(label)
+                            .color(text_col)
+                            .size(14.0)
+                            .strong(),
+                    )
+                    .fill(bg)
+                    .corner_radius(10.0)
+                    .stroke(egui::Stroke::new(1.0_f32, stroke_col.gamma_multiply(0.5)))
+                    .min_size(egui::vec2(width, 40.0));
                     let resp = ui.add(btn);
                     if resp.hovered() && primary {
-                        ui.painter().rect_filled(resp.rect, 10.0, amber_bright.gamma_multiply(0.15));
+                        ui.painter().rect_filled(
+                            resp.rect,
+                            10.0,
+                            amber_bright.gamma_multiply(0.15),
+                        );
                     } else if resp.hovered() {
-                        ui.painter().rect_filled(resp.rect, 10.0, amber_dim.gamma_multiply(0.08));
+                        ui.painter()
+                            .rect_filled(resp.rect, 10.0, amber_dim.gamma_multiply(0.08));
                     }
                     resp.clicked()
                 };
 
                 if sidebar_btn(ui, "\u{1F4C2}  Open File", true, ui.available_width()) {
                     if let Some(path) = rfd::FileDialog::new()
-                        .add_filter("All Supported", &[
-                            "jpg","jpeg","png","tiff","tif","bmp","gif","webp","heic","heif","avif",
-                            "cr2","cr3","nef","nrw","arw","srf","sr2","orf","rw2","raf","dng","pef","3fr","iiq","x3f",
-                            "mp4","mov","avi","mkv","wmv","flv","webm","m4v","3gp","mts","m2ts",
-                            "mp3","wav","flac","aac","ogg","wma","m4a",
-                            "pdf","psd","ai","eps","svg","xml","xmp",
-                        ])
-                        .add_filter("Photos", &["jpg","jpeg","png","tiff","tif","bmp","gif","webp","heic","heif","avif"])
-                        .add_filter("RAW Files", &["cr2","cr3","nef","nrw","arw","srf","sr2","orf","rw2","raf","dng","pef","3fr","iiq","x3f"])
-                        .add_filter("Video", &["mp4","mov","avi","mkv","wmv","flv","webm","m4v","3gp","mts","m2ts"])
+                        .add_filter(
+                            "All Supported",
+                            &[
+                                "jpg", "jpeg", "png", "tiff", "tif", "bmp", "gif", "webp", "heic",
+                                "heif", "avif", "cr2", "cr3", "nef", "nrw", "arw", "srf", "sr2",
+                                "orf", "rw2", "raf", "dng", "pef", "3fr", "iiq", "x3f", "mp4",
+                                "mov", "avi", "mkv", "wmv", "flv", "webm", "m4v", "3gp", "mts",
+                                "m2ts", "mp3", "wav", "flac", "aac", "ogg", "wma", "m4a", "pdf",
+                                "psd", "ai", "eps", "svg", "xml", "xmp",
+                            ],
+                        )
+                        .add_filter(
+                            "Photos",
+                            &[
+                                "jpg", "jpeg", "png", "tiff", "tif", "bmp", "gif", "webp", "heic",
+                                "heif", "avif",
+                            ],
+                        )
+                        .add_filter(
+                            "RAW Files",
+                            &[
+                                "cr2", "cr3", "nef", "nrw", "arw", "srf", "sr2", "orf", "rw2",
+                                "raf", "dng", "pef", "3fr", "iiq", "x3f",
+                            ],
+                        )
+                        .add_filter(
+                            "Video",
+                            &[
+                                "mp4", "mov", "avi", "mkv", "wmv", "flv", "webm", "m4v", "3gp",
+                                "mts", "m2ts",
+                            ],
+                        )
                         .add_filter("All Files", &["*"])
                         .pick_file()
                     {
@@ -383,23 +455,34 @@ impl eframe::App for MetaLensApp {
                 ui.add_space(8.0);
                 ui.horizontal(|ui| {
                     let half_w = (ui.available_width() - 8.0) / 2.0;
-                    if sidebar_btn(ui, "\u{1F4BE} Export", false, half_w) { self.export(); }
-                    if sidebar_btn(ui, "\u{1F4CB} Copy", false, half_w) { self.copy_all(); }
+                    if sidebar_btn(ui, "\u{1F4BE} Export", false, half_w) {
+                        self.export();
+                    }
+                    if sidebar_btn(ui, "\u{1F4CB} Copy", false, half_w) {
+                        self.copy_all();
+                    }
                 });
                 ui.add_space(8.0);
-                if sidebar_btn(ui, "\u{1F5D1}  Clear", false, ui.available_width()) { self.clear(); }
+                if sidebar_btn(ui, "\u{1F5D1}  Clear", false, ui.available_width()) {
+                    self.clear();
+                }
 
                 ui.add_space(28.0);
 
                 if self.file_loaded {
                     // ── Search bar ──
-                    ui.label(egui::RichText::new("SEARCH FIELDS").size(10.0).color(text_graphite).strong());
+                    ui.label(
+                        egui::RichText::new("SEARCH FIELDS")
+                            .size(10.0)
+                            .color(text_graphite)
+                            .strong(),
+                    );
                     ui.add_space(8.0);
 
                     let search_frame = egui::Frame::new()
                         .fill(bg_input)
                         .corner_radius(10.0)
-                        .stroke(egui::Stroke::new(1.0, border_subtle))
+                        .stroke(egui::Stroke::new(1.0_f32, border_subtle))
                         .inner_margin(egui::Margin::symmetric(14, 12));
 
                     search_frame.show(ui, |ui| {
@@ -425,12 +508,17 @@ impl eframe::App for MetaLensApp {
                         let card = egui::Frame::new()
                             .fill(bg_card)
                             .corner_radius(14.0)
-                            .stroke(egui::Stroke::new(1.0, border_warm))
+                            .stroke(egui::Stroke::new(1.0_f32, border_warm))
                             .inner_margin(egui::Margin::symmetric(18, 18));
                         card.show(ui, |ui| {
                             ui.set_width(ui.available_width());
                             ui.vertical(|ui| {
-                                ui.label(egui::RichText::new("\u{1F4F7}  SHUTTER COUNT").size(11.0).color(text_graphite).strong());
+                                ui.label(
+                                    egui::RichText::new("\u{1F4F7}  SHUTTER COUNT")
+                                        .size(11.0)
+                                        .color(text_graphite)
+                                        .strong(),
+                                );
                                 ui.add_space(6.0);
                                 ui.label(
                                     egui::RichText::new(format_number(info.count))
@@ -440,12 +528,22 @@ impl eframe::App for MetaLensApp {
                                 );
                                 if !self.camera_model.is_empty() {
                                     ui.add_space(2.0);
-                                    ui.label(egui::RichText::new(&self.camera_model).size(11.0).color(text_graphite));
+                                    ui.label(
+                                        egui::RichText::new(&self.camera_model)
+                                            .size(11.0)
+                                            .color(text_graphite),
+                                    );
                                 }
 
-                                if let (Some(rated), Some(pct)) = (info.rated_life, info.health_pct) {
+                                if let (Some(rated), Some(pct)) = (info.rated_life, info.health_pct)
+                                {
                                     ui.add_space(18.0);
-                                    ui.label(egui::RichText::new("SHUTTER LIFE USED").size(10.0).color(text_graphite).strong());
+                                    ui.label(
+                                        egui::RichText::new("SHUTTER LIFE USED")
+                                            .size(10.0)
+                                            .color(text_graphite)
+                                            .strong(),
+                                    );
                                     ui.add_space(8.0);
 
                                     // Gradient progress bar
@@ -457,20 +555,39 @@ impl eframe::App for MetaLensApp {
                                     let painter = ui.painter();
 
                                     // Track
-                                    painter.rect_filled(rect, 6.0, egui::Color32::from_rgb(14, 13, 18));
-                                    painter.rect_stroke(rect, 6.0, egui::Stroke::new(1.0, border_subtle), egui::StrokeKind::Outside);
+                                    painter.rect_filled(
+                                        rect,
+                                        6.0,
+                                        egui::Color32::from_rgb(14, 13, 18),
+                                    );
+                                    painter.rect_stroke(
+                                        rect,
+                                        6.0,
+                                        egui::Stroke::new(1.0_f32, border_subtle),
+                                        egui::StrokeKind::Outside,
+                                    );
 
                                     // Fill with gradient
                                     let fill_frac = (pct / 100.0).min(1.0);
                                     let fill_w = rect.width() * fill_frac;
-                                    let fill_start = if pct < 30.0 { sage }
-                                        else if pct < 60.0 { egui::Color32::from_rgb(240, 200, 50) }
-                                        else if pct < 80.0 { copper }
-                                        else { coral };
-                                    let fill_end = if pct < 30.0 { egui::Color32::from_rgb(80, 220, 120) }
-                                        else if pct < 60.0 { amber }
-                                        else if pct < 80.0 { egui::Color32::from_rgb(240, 120, 40) }
-                                        else { egui::Color32::from_rgb(255, 60, 60) };
+                                    let fill_start = if pct < 30.0 {
+                                        sage
+                                    } else if pct < 60.0 {
+                                        egui::Color32::from_rgb(240, 200, 50)
+                                    } else if pct < 80.0 {
+                                        copper
+                                    } else {
+                                        coral
+                                    };
+                                    let fill_end = if pct < 30.0 {
+                                        egui::Color32::from_rgb(80, 220, 120)
+                                    } else if pct < 60.0 {
+                                        amber
+                                    } else if pct < 80.0 {
+                                        egui::Color32::from_rgb(240, 120, 40)
+                                    } else {
+                                        egui::Color32::from_rgb(255, 60, 60)
+                                    };
 
                                     // Draw gradient bar in segments
                                     let segments = (fill_w as i32).max(1);
@@ -493,13 +610,19 @@ impl eframe::App for MetaLensApp {
                                                 .color(fill_start)
                                                 .strong(),
                                         );
-                                        ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
-                                            ui.label(
-                                                egui::RichText::new(format!("of {}", format_number(rated)))
+                                        ui.with_layout(
+                                            egui::Layout::right_to_left(egui::Align::Center),
+                                            |ui| {
+                                                ui.label(
+                                                    egui::RichText::new(format!(
+                                                        "of {}",
+                                                        format_number(rated)
+                                                    ))
                                                     .size(11.0)
                                                     .color(text_graphite),
-                                            );
-                                        });
+                                                );
+                                            },
+                                        );
                                     });
                                 }
                             });
@@ -511,16 +634,26 @@ impl eframe::App for MetaLensApp {
                 ui.with_layout(egui::Layout::bottom_up(egui::Align::Center), |ui| {
                     ui.add_space(8.0);
                     ui.hyperlink_to(
-                        egui::RichText::new("github.com/Hamza-op").size(10.0).color(text_graphite),
+                        egui::RichText::new("github.com/Hamza-op")
+                            .size(10.0)
+                            .color(text_graphite),
                         "https://github.com/Hamza-op",
                     );
                     ui.add_space(2.0);
-                    ui.label(egui::RichText::new("Made with \u{1F980} Rust").size(10.0).color(text_graphite));
+                    ui.label(
+                        egui::RichText::new("Made with \u{1F980} Rust")
+                            .size(10.0)
+                            .color(text_graphite),
+                    );
                     ui.add_space(6.0);
                     let exif_status = if self.exiftool_path.is_some() {
-                        egui::RichText::new("\u{2705} ExifTool Ready").size(11.0).color(sage)
+                        egui::RichText::new("\u{2705} ExifTool Ready")
+                            .size(11.0)
+                            .color(sage)
                     } else {
-                        egui::RichText::new("\u{26A0} ExifTool Missing").size(11.0).color(copper)
+                        egui::RichText::new("\u{26A0} ExifTool Missing")
+                            .size(11.0)
+                            .color(copper)
                     };
                     ui.label(exif_status);
                 });
@@ -561,7 +694,7 @@ impl eframe::App for MetaLensApp {
                             painter.circle_stroke(
                                 center,
                                 radius,
-                                egui::Stroke::new(1.5, amber.gamma_multiply(alpha)),
+                                egui::Stroke::new(1.5_f32, amber.gamma_multiply(alpha)),
                             );
                         }
                         // Amber glow behind icon
@@ -601,7 +734,7 @@ impl eframe::App for MetaLensApp {
                                 let alpha = (-dist * dist).exp();
                                 painter.line_segment(
                                     [egui::pos2(x, bar_rect.min.y), egui::pos2(x, bar_rect.max.y)],
-                                    egui::Stroke::new(1.0, amber.gamma_multiply(alpha * 0.8)),
+                                    egui::Stroke::new(1.0_f32, amber.gamma_multiply(alpha * 0.8)),
                                 );
                             }
                         }
@@ -624,7 +757,7 @@ impl eframe::App for MetaLensApp {
                     let btn = egui::Button::new(egui::RichText::new(icon).size(13.0).color(text_silver))
                         .fill(bg_card)
                         .corner_radius(8.0)
-                        .stroke(egui::Stroke::new(1.0, border_subtle))
+                        .stroke(egui::Stroke::new(1.0_f32, border_subtle))
                         .min_size(egui::vec2(30.0, 32.0));
                     ui.add(btn).clicked()
                 };
@@ -636,7 +769,7 @@ impl eframe::App for MetaLensApp {
                 let tab_frame = egui::Frame::new()
                     .fill(bg_card)
                     .corner_radius(12.0)
-                    .stroke(egui::Stroke::new(1.0, border_subtle))
+                    .stroke(egui::Stroke::new(1.0_f32, border_subtle))
                     .inner_margin(egui::Margin::symmetric(5, 5));
 
                 tab_frame.show(ui, |ui| {
@@ -664,7 +797,7 @@ impl eframe::App for MetaLensApp {
                                 )
                                 .fill(bg)
                                 .corner_radius(8.0)
-                                .stroke(egui::Stroke::new(if selected { 1.0 } else { 0.0 }, stroke))
+                                .stroke(egui::Stroke::new(if selected { 1.0_f32 } else { 0.0_f32 }, stroke))
                                 .min_size(egui::vec2(0.0, 28.0));
 
                                 let resp = ui.add(btn);
@@ -695,7 +828,7 @@ impl eframe::App for MetaLensApp {
             let content_frame = egui::Frame::new()
                 .fill(bg_panel)
                 .corner_radius(14.0)
-                .stroke(egui::Stroke::new(1.0, border_subtle))
+                .stroke(egui::Stroke::new(1.0_f32, border_subtle))
                 .inner_margin(egui::Margin::same(0))
                 .outer_margin(egui::Margin::symmetric(16, 0));
 
@@ -788,7 +921,7 @@ impl eframe::App for MetaLensApp {
                 let status_frame = egui::Frame::new()
                     .fill(bg_card)
                     .corner_radius(10.0)
-                    .stroke(egui::Stroke::new(1.0, border_subtle))
+                    .stroke(egui::Stroke::new(1.0_f32, border_subtle))
                     .inner_margin(egui::Margin::symmetric(14, 7));
                 status_frame.show(ui, |ui| {
                     ui.set_width(ui.available_width() - 32.0);

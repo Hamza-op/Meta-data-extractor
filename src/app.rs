@@ -1,4 +1,5 @@
 use crate::exiftool;
+use crate::file_facts::FileFacts;
 use crate::metadata::{self, MetadataEntry, ShutterInfo};
 use eframe::egui;
 use std::path::PathBuf;
@@ -11,6 +12,7 @@ struct LoadResult {
     shutter: Option<ShutterInfo>,
     model: String,
     file_path: String,
+    file_facts: FileFacts,
 }
 
 pub struct MetaLensApp {
@@ -32,6 +34,8 @@ pub struct MetaLensApp {
     pending_file: Option<String>,
     logo_texture: Option<egui::TextureHandle>,
     tab_scroll_offset: f32,
+    file_facts: Option<FileFacts>,
+    online_fields: usize,
 }
 
 impl MetaLensApp {
@@ -58,6 +62,8 @@ impl MetaLensApp {
             pending_file: initial_file,
             logo_texture: None,
             tab_scroll_offset: 0.0,
+            file_facts: None,
+            online_fields: 0,
         }
     }
 
@@ -73,16 +79,17 @@ impl MetaLensApp {
 
         std::thread::spawn(move || {
             let file_path_buf = PathBuf::from(&path);
+            let file_facts = FileFacts::inspect(&file_path_buf).unwrap_or_default();
             match exiftool::run_exiftool(&exiftool, &file_path_buf) {
                 Ok(output) => {
                     let mut parsed = exiftool::parse_output(&output);
 
                     let internet_entries =
-                        crate::net_enrich::fetch_internet_metadata(&parsed.entries);
+                        crate::net_enrich::fetch_internet_metadata(&parsed.entries, &file_path_buf);
                     if !internet_entries.is_empty() {
                         parsed.entries.extend(internet_entries);
-                        if !parsed.groups.contains(&"Internet Data".to_string()) {
-                            parsed.groups.insert(1, "Internet Data".into());
+                        if !parsed.groups.contains(&"Online Intelligence".to_string()) {
+                            parsed.groups.insert(1, "Online Intelligence".into());
                         }
                     }
 
@@ -96,6 +103,7 @@ impl MetaLensApp {
                         shutter,
                         model: parsed.found_model,
                         file_path: path,
+                        file_facts,
                     });
                 }
                 Err(e) => {
@@ -110,6 +118,7 @@ impl MetaLensApp {
                         shutter: None,
                         model: String::new(),
                         file_path: path,
+                        file_facts,
                     });
                 }
             }
@@ -138,6 +147,8 @@ impl MetaLensApp {
         self.current_file.clear();
         self.shutter_info = None;
         self.camera_model.clear();
+        self.file_facts = None;
+        self.online_fields = 0;
         self.status_msg = "Ready — Drop a file or click Open".into();
     }
 
@@ -208,6 +219,14 @@ fn format_number(n: u64) -> String {
     result
 }
 
+fn short_hash(hash: &str) -> String {
+    if hash.len() > 24 {
+        format!("{}…{}", &hash[..14], &hash[hash.len() - 8..])
+    } else {
+        hash.to_string()
+    }
+}
+
 impl eframe::App for MetaLensApp {
     fn update(&mut self, ctx: &egui::Context, _frame: &mut eframe::Frame) {
         self.anim_time = ctx.input(|i| i.time);
@@ -226,6 +245,12 @@ impl eframe::App for MetaLensApp {
                 self.shutter_info = result.shutter;
                 self.camera_model = result.model;
                 self.current_file = result.file_path;
+                self.file_facts = Some(result.file_facts);
+                self.online_fields = self
+                    .all_entries
+                    .iter()
+                    .filter(|entry| entry.group == "Online Intelligence")
+                    .count();
                 self.file_loaded = true;
                 self.loading = false;
                 self.active_tab = 0;
@@ -744,6 +769,149 @@ impl eframe::App for MetaLensApp {
                 });
                 ctx.request_repaint_after(std::time::Duration::from_millis(50));
                 return;
+            }
+
+            // ─────────────────────────────────────
+            // EVIDENCE RAIL — the file is the hero
+            // ─────────────────────────────────────
+            if let Some(facts) = &self.file_facts {
+                let evidence_frame = egui::Frame::new()
+                    .fill(bg_panel)
+                    .corner_radius(14.0)
+                    .stroke(egui::Stroke::new(1.0_f32, border_warm))
+                    .inner_margin(egui::Margin::symmetric(18, 16))
+                    .outer_margin(egui::Margin::symmetric(16, 0));
+
+                evidence_frame.show(ui, |ui| {
+                    ui.horizontal(|ui| {
+                        ui.vertical(|ui| {
+                            ui.label(
+                                egui::RichText::new("ACTIVE EVIDENCE")
+                                    .size(9.5)
+                                    .strong()
+                                    .color(amber_dim),
+                            );
+                            ui.add_space(3.0);
+                            ui.label(
+                                egui::RichText::new(&facts.name)
+                                    .size(20.0)
+                                    .strong()
+                                    .color(text_cream),
+                            );
+                        });
+                        ui.with_layout(
+                            egui::Layout::right_to_left(egui::Align::Center),
+                            |ui| {
+                                let online_label = if self.online_fields == 0 {
+                                    "Local analysis only".to_string()
+                                } else {
+                                    format!("{} online facts", self.online_fields)
+                                };
+                                ui.label(
+                                    egui::RichText::new(online_label)
+                                        .size(10.5)
+                                        .strong()
+                                        .color(if self.online_fields == 0 {
+                                            text_graphite
+                                        } else {
+                                            sage
+                                        })
+                                        .background_color(bg_card),
+                                );
+                                ui.label(
+                                    egui::RichText::new(if facts.readonly {
+                                        "READ ONLY"
+                                    } else {
+                                        "WRITABLE"
+                                    })
+                                    .size(9.5)
+                                    .strong()
+                                    .color(if facts.readonly { copper } else { teal }),
+                                );
+                            },
+                        );
+                    });
+
+                    ui.add_space(14.0);
+                    let fact_width = ((ui.available_width() - 30.0) / 4.0).max(92.0);
+                    let item = |ui: &mut egui::Ui,
+                                label: &str,
+                                value: &str,
+                                accent: egui::Color32| {
+                        egui::Frame::new()
+                            .fill(bg_card)
+                            .corner_radius(9.0)
+                            .inner_margin(egui::Margin::symmetric(11, 9))
+                            .show(ui, |ui| {
+                                ui.set_width(fact_width);
+                                ui.label(
+                                    egui::RichText::new(label)
+                                        .size(8.5)
+                                        .strong()
+                                        .color(text_graphite),
+                                );
+                                ui.add_space(3.0);
+                                ui.label(
+                                    egui::RichText::new(value)
+                                        .size(11.5)
+                                        .strong()
+                                        .color(accent),
+                                );
+                            });
+                    };
+
+                    ui.horizontal(|ui| {
+                        ui.spacing_mut().item_spacing.x = 10.0;
+                        item(ui, "FORMAT", &facts.format, amber);
+                        item(ui, "KIND", &facts.media_kind, teal);
+                        item(ui, "SIZE", &facts.size, text_cream);
+                        item(ui, "MODIFIED", &facts.modified, mauve);
+                    });
+                    ui.add_space(8.0);
+
+                    let hash_label = short_hash(&facts.sha256);
+                    let response = egui::Frame::new()
+                        .fill(egui::Color32::from_rgb(18, 24, 25))
+                        .corner_radius(9.0)
+                        .stroke(egui::Stroke::new(1.0_f32, teal.gamma_multiply(0.22)))
+                        .inner_margin(egui::Margin::symmetric(12, 8))
+                        .show(ui, |ui| {
+                            ui.horizontal(|ui| {
+                                ui.label(
+                                    egui::RichText::new("SHA-256 FINGERPRINT")
+                                        .size(8.5)
+                                        .strong()
+                                        .color(text_graphite),
+                                );
+                                ui.label(
+                                    egui::RichText::new(&hash_label)
+                                        .size(11.5)
+                                        .monospace()
+                                        .strong()
+                                        .color(sage),
+                                );
+                                ui.with_layout(
+                                    egui::Layout::right_to_left(egui::Align::Center),
+                                    |ui| {
+                                        ui.label(
+                                            egui::RichText::new("CLICK TO COPY")
+                                                .size(8.5)
+                                                .strong()
+                                                .color(teal),
+                                        );
+                                    },
+                                );
+                            });
+                        })
+                        .response
+                        .interact(egui::Sense::click());
+                    if response.clicked() {
+                        ctx.copy_text(facts.sha256.clone());
+                        self.status_msg = "SHA-256 fingerprint copied".into();
+                    }
+                    response.on_hover_text(&facts.sha256);
+                });
+                ui.add_space(14.0);
             }
 
             // ─────────────────────────────────────

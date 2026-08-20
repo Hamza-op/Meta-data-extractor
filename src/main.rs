@@ -7,6 +7,7 @@ use std::os::windows::process::CommandExt;
 mod app;
 mod camera_db;
 mod exiftool;
+mod file_facts;
 mod metadata;
 mod net_enrich;
 

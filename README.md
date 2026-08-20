@@ -45,6 +45,12 @@ Designed for the professional eye, MetaLens provides a workspace that feels like
 *   **Forensic Enrichment**:
     *   📍 **Geo-Forensics**: Automated reverse geocoding to identify capture locations.
     *   ☁️ **Weather Reconstruction**: Historical weather data synced to the exact moment of capture.
+    *   🌐 **Format & Device Intelligence**: Internet-sourced context for supported file formats and identified cameras.
+*   **Evidence Rail**: Immediate file type, size, modified time, access state, SHA-256 fingerprint, and online-enrichment coverage.
+
+### Internet enrichment and privacy
+
+When a supported file is analyzed, MetaLens may request descriptive format or camera information from Wikipedia. If the file contains GPS coordinates, those coordinates are sent to OpenStreetMap Nominatim for reverse geocoding and to Open-Meteo for historical weather, elevation, and timezone context. File contents and file hashes are never uploaded. Internet failures do not prevent local metadata analysis.
 
 ---
 

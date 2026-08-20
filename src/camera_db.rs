@@ -421,10 +421,19 @@ static CAMERA_DB: Lazy<HashMap<&'static str, &'static str>> = Lazy::new(|| {
     m.insert("alexa sxt", "ARRI ALEXA SXT");
     m.insert("amira", "ARRI Amira");
     // Blackmagic Design
-    m.insert("pocket cinema camera 4k", "Blackmagic Pocket Cinema Camera 4K");
+    m.insert(
+        "pocket cinema camera 4k",
+        "Blackmagic Pocket Cinema Camera 4K",
+    );
     m.insert("bmpcc4k", "Blackmagic Pocket Cinema Camera 4K");
-    m.insert("pocket cinema camera 6k pro", "Blackmagic Pocket Cinema Camera 6K Pro");
-    m.insert("pocket cinema camera 6k", "Blackmagic Pocket Cinema Camera 6K");
+    m.insert(
+        "pocket cinema camera 6k pro",
+        "Blackmagic Pocket Cinema Camera 6K Pro",
+    );
+    m.insert(
+        "pocket cinema camera 6k",
+        "Blackmagic Pocket Cinema Camera 6K",
+    );
     m.insert("bmpcc6k", "Blackmagic Pocket Cinema Camera 6K");
     m.insert("ursa mini pro", "Blackmagic URSA Mini Pro");
     m.insert("cinema camera 6k", "Blackmagic Cinema Camera 6K");
@@ -451,32 +460,53 @@ static LENS_DB: Lazy<HashMap<&'static str, &'static str>> = Lazy::new(|| {
     // Canon RF
     m.insert("rf24-70mm f2.8 l is usm", "Canon RF 24-70mm f/2.8L IS USM");
     m.insert("rf24-105mm f4 l is usm", "Canon RF 24-105mm f/4L IS USM");
-    m.insert("rf70-200mm f2.8 l is usm", "Canon RF 70-200mm f/2.8L IS USM");
+    m.insert(
+        "rf70-200mm f2.8 l is usm",
+        "Canon RF 70-200mm f/2.8L IS USM",
+    );
     m.insert("rf50mm f1.2 l usm", "Canon RF 50mm f/1.2L USM");
     m.insert("rf50mm f1.8 stm", "Canon RF 50mm f/1.8 STM");
     m.insert("rf85mm f1.2 l usm", "Canon RF 85mm f/1.2L USM");
-    m.insert("rf100mm f2.8 l macro is usm", "Canon RF 100mm f/2.8L Macro IS USM");
+    m.insert(
+        "rf100mm f2.8 l macro is usm",
+        "Canon RF 100mm f/2.8L Macro IS USM",
+    );
     m.insert("rf15-35mm f2.8 l is usm", "Canon RF 15-35mm f/2.8L IS USM");
-    m.insert("rf100-500mm f4.5-7.1 l is usm", "Canon RF 100-500mm f/4.5-7.1L IS USM");
+    m.insert(
+        "rf100-500mm f4.5-7.1 l is usm",
+        "Canon RF 100-500mm f/4.5-7.1L IS USM",
+    );
     // Canon EF
     m.insert("ef24-70mm f2.8l ii usm", "Canon EF 24-70mm f/2.8L II USM");
-    m.insert("ef70-200mm f2.8l is iii usm", "Canon EF 70-200mm f/2.8L IS III USM");
+    m.insert(
+        "ef70-200mm f2.8l is iii usm",
+        "Canon EF 70-200mm f/2.8L IS III USM",
+    );
     m.insert("ef50mm f1.8 stm", "Canon EF 50mm f/1.8 STM (Nifty Fifty)");
     m.insert("ef50mm f1.4 usm", "Canon EF 50mm f/1.4 USM");
     m.insert("ef85mm f1.4l is usm", "Canon EF 85mm f/1.4L IS USM");
     m.insert("ef135mm f2l usm", "Canon EF 135mm f/2L USM");
     // Nikon Z
     m.insert("nikkor z 24-70mm f/2.8 s", "Nikon NIKKOR Z 24-70mm f/2.8 S");
-    m.insert("nikkor z 70-200mm f/2.8 vr s", "Nikon NIKKOR Z 70-200mm f/2.8 VR S");
+    m.insert(
+        "nikkor z 70-200mm f/2.8 vr s",
+        "Nikon NIKKOR Z 70-200mm f/2.8 VR S",
+    );
     m.insert("nikkor z 50mm f/1.2 s", "Nikon NIKKOR Z 50mm f/1.2 S");
     m.insert("nikkor z 50mm f/1.8 s", "Nikon NIKKOR Z 50mm f/1.8 S");
     m.insert("nikkor z 85mm f/1.2 s", "Nikon NIKKOR Z 85mm f/1.2 S");
-    m.insert("nikkor z 135mm f/1.8 s plena", "Nikon NIKKOR Z 135mm f/1.8 S Plena");
+    m.insert(
+        "nikkor z 135mm f/1.8 s plena",
+        "Nikon NIKKOR Z 135mm f/1.8 S Plena",
+    );
     m.insert("nikkor z 14-24mm f/2.8 s", "Nikon NIKKOR Z 14-24mm f/2.8 S");
     // Sony FE
     m.insert("fe 24-70mm f2.8 gm ii", "Sony FE 24-70mm f/2.8 GM II");
     m.insert("fe 24-70mm f2.8 gm", "Sony FE 24-70mm f/2.8 GM");
-    m.insert("fe 70-200mm f2.8 gm oss ii", "Sony FE 70-200mm f/2.8 GM OSS II");
+    m.insert(
+        "fe 70-200mm f2.8 gm oss ii",
+        "Sony FE 70-200mm f/2.8 GM OSS II",
+    );
     m.insert("fe 70-200mm f2.8 gm oss", "Sony FE 70-200mm f/2.8 GM OSS");
     m.insert("fe 50mm f1.2 gm", "Sony FE 50mm f/1.2 GM");
     m.insert("fe 50mm f1.4 gm", "Sony FE 50mm f/1.4 GM");
@@ -484,25 +514,55 @@ static LENS_DB: Lazy<HashMap<&'static str, &'static str>> = Lazy::new(|| {
     m.insert("fe 135mm f1.8 gm", "Sony FE 135mm f/1.8 GM");
     m.insert("fe 16-35mm f2.8 gm ii", "Sony FE 16-35mm f/2.8 GM II");
     m.insert("fe 24-105mm f4 g oss", "Sony FE 24-105mm f/4 G OSS");
-    m.insert("fe 200-600mm f5.6-6.3 g oss", "Sony FE 200-600mm f/5.6-6.3 G OSS");
+    m.insert(
+        "fe 200-600mm f5.6-6.3 g oss",
+        "Sony FE 200-600mm f/5.6-6.3 G OSS",
+    );
     // Sigma Art
     m.insert("35mm f1.4 dg hsm | art 012", "Sigma 35mm f/1.4 DG HSM Art");
     m.insert("35mm f1.4 dg dn | art 021", "Sigma 35mm f/1.4 DG DN Art");
     m.insert("50mm f1.4 dg hsm | art 014", "Sigma 50mm f/1.4 DG HSM Art");
     m.insert("85mm f1.4 dg hsm | art 016", "Sigma 85mm f/1.4 DG HSM Art");
-    m.insert("105mm f1.4 dg hsm | art 018", "Sigma 105mm f/1.4 DG HSM Art (Bokeh Master)");
-    m.insert("24-70mm f2.8 dg dn | art 019", "Sigma 24-70mm f/2.8 DG DN Art");
-    m.insert("14-24mm f2.8 dg dn | art 019", "Sigma 14-24mm f/2.8 DG DN Art");
+    m.insert(
+        "105mm f1.4 dg hsm | art 018",
+        "Sigma 105mm f/1.4 DG HSM Art (Bokeh Master)",
+    );
+    m.insert(
+        "24-70mm f2.8 dg dn | art 019",
+        "Sigma 24-70mm f/2.8 DG DN Art",
+    );
+    m.insert(
+        "14-24mm f2.8 dg dn | art 019",
+        "Sigma 14-24mm f/2.8 DG DN Art",
+    );
     // Tamron
-    m.insert("28-75mm f/2.8 di iii vxd g2 (a063)", "Tamron 28-75mm f/2.8 Di III VXD G2");
-    m.insert("70-180mm f/2.8 di iii vxd g2 (a065)", "Tamron 70-180mm f/2.8 Di III VXD G2");
-    m.insert("35-150mm f/2-2.8 di iii vxd (a058)", "Tamron 35-150mm f/2-2.8 Di III VXD");
-    m.insert("150-500mm f/5-6.7 di iii vc vxd (a057)", "Tamron 150-500mm f/5-6.7 Di III VC VXD");
+    m.insert(
+        "28-75mm f/2.8 di iii vxd g2 (a063)",
+        "Tamron 28-75mm f/2.8 Di III VXD G2",
+    );
+    m.insert(
+        "70-180mm f/2.8 di iii vxd g2 (a065)",
+        "Tamron 70-180mm f/2.8 Di III VXD G2",
+    );
+    m.insert(
+        "35-150mm f/2-2.8 di iii vxd (a058)",
+        "Tamron 35-150mm f/2-2.8 Di III VXD",
+    );
+    m.insert(
+        "150-500mm f/5-6.7 di iii vc vxd (a057)",
+        "Tamron 150-500mm f/5-6.7 Di III VC VXD",
+    );
     // Fujifilm
     m.insert("xf16-55mmf2.8 r lm wr", "Fujifilm XF 16-55mm f/2.8 R LM WR");
-    m.insert("xf50-140mmf2.8 r lm ois wr", "Fujifilm XF 50-140mm f/2.8 R LM OIS WR");
+    m.insert(
+        "xf50-140mmf2.8 r lm ois wr",
+        "Fujifilm XF 50-140mm f/2.8 R LM OIS WR",
+    );
     m.insert("xf56mmf1.2 r", "Fujifilm XF 56mm f/1.2 R");
-    m.insert("xf23mmf1.4 r lm wr", "Fujifilm XF 23mm f/1.4 R LM WR (mk II)");
+    m.insert(
+        "xf23mmf1.4 r lm wr",
+        "Fujifilm XF 23mm f/1.4 R LM WR (mk II)",
+    );
     m.insert("xf35mmf1.4 r", "Fujifilm XF 35mm f/1.4 R");
     m.insert("xf90mmf2 r lm wr", "Fujifilm XF 90mm f/2 R LM WR");
     m

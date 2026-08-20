@@ -38,9 +38,10 @@ fn main() -> eframe::Result<()> {
     install_context_menu();
 
     // Check if a file path was passed as a CLI argument (e.g. from context menu)
-    let initial_file = args.get(1).filter(|p| {
-        !p.starts_with("--") && std::path::Path::new(p).exists()
-    }).cloned();
+    let initial_file = args
+        .get(1)
+        .filter(|p| !p.starts_with("--") && std::path::Path::new(p).exists())
+        .cloned();
 
     let options = eframe::NativeOptions {
         viewport: egui::ViewportBuilder::default()
@@ -76,13 +77,14 @@ fn install_context_menu() {
 
     // Limit to supported files only
     let extensions = [
-        ".jpg",".jpeg",".png",".tiff",".tif",".bmp",".gif",".webp",".heic",".heif",".avif",
-        ".cr2",".cr3",".nef",".nrw",".arw",".srf",".sr2",".orf",".rw2",".raf",".dng",".pef",".3fr",".iiq",".x3f",
-        ".mp4",".mov",".avi",".mkv",".wmv",".flv",".webm",".m4v",".3gp",".mts",".m2ts",
-        ".mp3",".wav",".flac",".aac",".ogg",".wma",".m4a",
-        ".pdf",".psd",".ai",".eps",".svg",".xml",".xmp"
+        ".jpg", ".jpeg", ".png", ".tiff", ".tif", ".bmp", ".gif", ".webp", ".heic", ".heif",
+        ".avif", ".cr2", ".cr3", ".nef", ".nrw", ".arw", ".srf", ".sr2", ".orf", ".rw2", ".raf",
+        ".dng", ".pef", ".3fr", ".iiq", ".x3f", ".mp4", ".mov", ".avi", ".mkv", ".wmv", ".flv",
+        ".webm", ".m4v", ".3gp", ".mts", ".m2ts", ".mp3", ".wav", ".flac", ".aac", ".ogg", ".wma",
+        ".m4a", ".pdf", ".psd", ".ai", ".eps", ".svg", ".xml", ".xmp",
     ];
-    let applies_to = extensions.iter()
+    let applies_to = extensions
+        .iter()
         .map(|ext| format!("System.FileExtension:={}", ext))
         .collect::<Vec<_>>()
         .join(" OR ");
@@ -94,7 +96,15 @@ fn install_context_menu() {
 
     // Set icon to the exe itself
     let _ = std::process::Command::new("reg")
-        .args(["add", reg_key, "/v", "Icon", "/d", &format!("\"{}\",0", exe_str), "/f"])
+        .args([
+            "add",
+            reg_key,
+            "/v",
+            "Icon",
+            "/d",
+            &format!("\"{}\",0", exe_str),
+            "/f",
+        ])
         .creation_flags(0x08000000)
         .output();
 

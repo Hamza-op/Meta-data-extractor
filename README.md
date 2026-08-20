@@ -51,7 +51,7 @@ Designed for the professional eye, MetaLens provides a workspace that feels like
 ## 🚀 Getting Started
 
 ### 📦 Binary Installation
-Retrieve the latest forensic suite for your platform from the [Releases](https://github.com/Hamza-op/MetaLens/releases) page.
+Retrieve the latest forensic suite for your platform from the [Releases](https://github.com/Hamza-op/Meta-data-extractor/releases) page.
 
 1.  **Windows**: Download `MetaLens-Windows.exe`. Launch it to automatically register the context menu.
 2.  **macOS**: Download `MetaLens-macOS`. Grant execution permissions (`chmod +x`) if necessary.
@@ -62,7 +62,8 @@ Requires the latest **Rust** (2021 Edition) toolchain.
 
 ```bash
 # 1. Acquire the source
-git clone https://github.com/Hamza-op/MetaLens
+git clone https://github.com/Hamza-op/Meta-data-extractor.git
+cd Meta-data-extractor
 
 # 2. Verify Assets
 # Ensure assets/logo.png and assets/payload.zip are present
@@ -84,4 +85,3 @@ cargo build --release
 ### License
 Released under the **MIT License**.
 *ExifTool is licensed under the Artistic License / GPL.*
-

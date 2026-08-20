@@ -4,10 +4,10 @@ use crate::metadata::MetadataEntry;
 use std::fs::File;
 #[allow(unused_imports)]
 use std::io;
-use std::path::{Path, PathBuf};
-use std::process::Command;
 #[cfg(windows)]
 use std::os::windows::process::CommandExt;
+use std::path::{Path, PathBuf};
+use std::process::Command;
 #[allow(unused_imports)]
 use zip::ZipArchive;
 
@@ -95,16 +95,16 @@ fn ensure_embedded_exiftool() -> Option<PathBuf> {
     // Extraction needed
     let _ = std::fs::create_dir_all(&dest_dir);
     let payload_path = dest_dir.join("payload.zip");
-    
+
     if std::fs::write(&payload_path, EXIFTOOL_PAYLOAD).is_ok() {
         let extracted = extract_payload(&payload_path, &dest_dir).is_ok();
         let _ = std::fs::remove_file(&payload_path); // Cleanup zip
-        
+
         if extracted && dest_exe.exists() {
             return Some(dest_exe);
         }
     }
-    
+
     None
 }
 
@@ -141,8 +141,9 @@ pub fn run_exiftool(exiftool_path: &Path, file_path: &Path) -> Result<String, St
     cmd.arg(file_path);
     #[cfg(windows)]
     cmd.creation_flags(0x08000000);
-    
-    let output = cmd.output()
+
+    let output = cmd
+        .output()
         .map_err(|e| format!("Failed to launch ExifTool: {}", e))?;
 
     if !output.status.success() && output.stdout.is_empty() {
@@ -185,7 +186,9 @@ pub fn parse_output(output: &str) -> ParseResult {
             ("Other".to_string(), line)
         };
 
-        let Some(colon) = rest.find(':') else { continue };
+        let Some(colon) = rest.find(':') else {
+            continue;
+        };
         let tag = rest[..colon].trim().to_string();
         let value = rest[colon + 1..].trim().to_string();
         if tag.is_empty() || tag.to_lowercase().starts_with("unknown") {
@@ -248,11 +251,14 @@ pub fn parse_output(output: &str) -> ParseResult {
     if !found_model.is_empty() {
         let resolved = camera_db::resolve_camera_model(&found_model);
         if resolved != found_model {
-            entries.insert(0, MetadataEntry {
-                group: "Camera Info".into(),
-                tag: "\u{1F4F7} Identified Camera".into(),
-                value: format!("{}  \u{2192}  {}", found_model, resolved),
-            });
+            entries.insert(
+                0,
+                MetadataEntry {
+                    group: "Camera Info".into(),
+                    tag: "\u{1F4F7} Identified Camera".into(),
+                    value: format!("{}  \u{2192}  {}", found_model, resolved),
+                },
+            );
             if group_set.insert("Camera Info".into()) {
                 groups.insert(0, "Camera Info".into());
             }
@@ -260,20 +266,39 @@ pub fn parse_output(output: &str) -> ParseResult {
     }
 
     // Resolve lens
-    let best_lens = [&found_lens_model, &found_lens_id, &found_lens_type, &found_lens_info]
-        .iter()
-        .find(|s| !s.is_empty() && **s != "-" && s.to_lowercase() != "unknown")
-        .map(|s| s.to_string());
+    let best_lens = [
+        &found_lens_model,
+        &found_lens_id,
+        &found_lens_type,
+        &found_lens_info,
+    ]
+    .iter()
+    .find(|s| !s.is_empty() && **s != "-" && s.to_lowercase() != "unknown")
+    .map(|s| s.to_string());
 
     if let Some(lens_str) = best_lens {
         let resolved = camera_db::resolve_lens_model(&lens_str);
         let (tag, value) = if resolved != lens_str {
-            ("\u{1F52D} Identified Lens".to_string(), format!("{}  \u{2192}  {}", lens_str, resolved))
+            (
+                "\u{1F52D} Identified Lens".to_string(),
+                format!("{}  \u{2192}  {}", lens_str, resolved),
+            )
         } else {
             ("\u{1F52D} Lens".to_string(), lens_str)
         };
-        let pos = if !entries.is_empty() && entries[0].tag.contains("Identified Camera") { 1 } else { 0 };
-        entries.insert(pos, MetadataEntry { group: "Camera Info".into(), tag, value });
+        let pos = if !entries.is_empty() && entries[0].tag.contains("Identified Camera") {
+            1
+        } else {
+            0
+        };
+        entries.insert(
+            pos,
+            MetadataEntry {
+                group: "Camera Info".into(),
+                tag,
+                value,
+            },
+        );
         if group_set.insert("Camera Info".into()) {
             groups.insert(0, "Camera Info".into());
         }
@@ -282,20 +307,36 @@ pub fn parse_output(output: &str) -> ParseResult {
     // Sort groups by priority
     groups.sort_by_key(|g| {
         let gl = g.to_lowercase();
-        if gl == "camera info" { 0 }
-        else if gl.contains("exif") { 1 }
-        else if gl.contains("ifd0") { 2 }
-        else if gl.contains("makernotes") { 3 }
-        else if gl.contains("xmp") { 4 }
-        else if gl.contains("iptc") { 5 }
-        else if gl.contains("icc") { 6 }
-        else if gl.contains("composite") { 7 }
-        else if gl.contains("file") { 8 }
-        else if gl.contains("quicktime") || gl.contains("track") { 3 }
-        else { 10 }
+        if gl == "camera info" {
+            0
+        } else if gl.contains("exif") {
+            1
+        } else if gl.contains("ifd0") {
+            2
+        } else if gl.contains("makernotes") {
+            3
+        } else if gl.contains("xmp") {
+            4
+        } else if gl.contains("iptc") {
+            5
+        } else if gl.contains("icc") {
+            6
+        } else if gl.contains("composite") {
+            7
+        } else if gl.contains("file") {
+            8
+        } else if gl.contains("quicktime") || gl.contains("track") {
+            3
+        } else {
+            10
+        }
     });
 
-    ParseResult { entries, groups, found_model }
+    ParseResult {
+        entries,
+        groups,
+        found_model,
+    }
 }
 
 #[cfg(test)]
@@ -313,7 +354,10 @@ mod tests {
         let parsed = parse_output(output);
 
         assert_eq!(parsed.found_model, "ILCE-7RM5");
-        assert_eq!(parsed.groups.first().map(String::as_str), Some("Camera Info"));
+        assert_eq!(
+            parsed.groups.first().map(String::as_str),
+            Some("Camera Info")
+        );
         assert!(parsed.entries.iter().any(|e| {
             e.group == "Camera Info"
                 && e.tag.contains("Identified Camera")
@@ -332,16 +376,23 @@ mod tests {
             ("[QuickTime] Model : iPhone 15 Pro", "Apple iPhone 15 Pro"),
             ("[Keys] Model : dji mavic 3", "DJI Mavic 3"),
             ("[UserData] Model : hero12 black", "GoPro HERO12 Black"),
-            ("[Android] Android Model : Pixel 9 Pro XL", "Google Pixel 9 Pro XL"),
+            (
+                "[Android] Android Model : Pixel 9 Pro XL",
+                "Google Pixel 9 Pro XL",
+            ),
         ];
 
         for (raw_line, expected_resolved) in outputs {
             let parsed = parse_output(raw_line);
-            assert!(parsed.entries.iter().any(|e| {
-                e.group == "Camera Info"
-                    && e.tag.contains("Identified Camera")
-                    && e.value.contains(expected_resolved)
-            }), "Failed for line: {}", raw_line);
+            assert!(
+                parsed.entries.iter().any(|e| {
+                    e.group == "Camera Info"
+                        && e.tag.contains("Identified Camera")
+                        && e.value.contains(expected_resolved)
+                }),
+                "Failed for line: {}",
+                raw_line
+            );
         }
     }
 }

@@ -3,6 +3,15 @@
 All notable changes to MetaLens are documented here. The project follows
 [Semantic Versioning](https://semver.org/).
 
+## [1.1.0] - 2026-08-20
+
+### Added
+
+- A file evidence rail with format, media kind, size, modification time, access state, and a copyable SHA-256 fingerprint.
+- Internet-sourced file-format and camera context from Wikipedia.
+- Elevation, timezone, and explicit source provenance for location and historical-weather enrichment.
+- Clear privacy documentation for every online enrichment request.
+
 ## [1.0.6] - 2026-08-20
 
 ### Changed

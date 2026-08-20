@@ -136,19 +136,35 @@ pub fn summary_fields() -> Vec<SummaryField> {
         },
         SummaryField {
             display_name: "Exact Location",
-            aliases: &["🌍 exact location"],
+            aliases: &["🌍 exact location", "exact location"],
         },
         SummaryField {
             display_name: "City / Region",
-            aliases: &["🏙️ city / region"],
+            aliases: &["🏙️ city / region", "city / region"],
         },
         SummaryField {
             display_name: "Historic Temp",
-            aliases: &["🌡️ historic temperature"],
+            aliases: &["🌡️ historic temperature", "historic temperature"],
         },
         SummaryField {
             display_name: "Historic Weather",
-            aliases: &["☁️ historic weather"],
+            aliases: &["☁️ historic weather", "historic weather"],
+        },
+        SummaryField {
+            display_name: "File Format Context",
+            aliases: &["format reference"],
+        },
+        SummaryField {
+            display_name: "Device Context",
+            aliases: &["device context"],
+        },
+        SummaryField {
+            display_name: "Capture Timezone",
+            aliases: &["capture timezone"],
+        },
+        SummaryField {
+            display_name: "Location Elevation",
+            aliases: &["location elevation"],
         },
         SummaryField {
             display_name: "Exposure Compensation",
